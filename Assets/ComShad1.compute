@@ -1,0 +1,592 @@
+#pragma kernel CSAddSand
+#pragma kernel CSFallSand
+#pragma kernel CSTransformToTexture
+#pragma kernel CSAddPlanet
+
+/*
+ * Particle types:
+ * 100: stone
+ * 101: dirt
+ * 102: sand
+ * 103: water
+ */
+
+struct Particle {
+    float4 color;
+    float2 velocity;
+    uint type;  // 0 for empty, 1 for sand, etc.
+    int stickyToId; // 0 for stay, 1 for fall
+    uint mass;
+    float2 position;
+};
+
+RWStructuredBuffer<Particle> Particles;
+RWTexture2D<float4> ResultTexture;
+float2 mousePos;
+uint _Width;
+uint _Height;
+
+float2 gravityPoint = float2(200, 200);
+float gravityStrength = 2;
+float dt;
+//const float G = 7 * 10 * 1000 * 2;
+const float minG = 7 * 10 * 100;
+
+uint _planetCount;
+
+struct Planet {
+    uint id;
+    float2 pos;
+    uint mass;
+    uint active;
+};
+
+RWStructuredBuffer<Planet> planets;
+RWStructuredBuffer<uint> rngs;
+uint _rngCount;
+
+// Hash function from H. Schechter & R. Bridson, goo.gl/RXiKaH
+/*
+uint Hash(uint s)
+{
+    s ^= 2747636419u;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    return s;
+}
+
+float2 Random(uint seed) {
+    uint hashedSeed = Hash(seed);
+    float randomValue = float(hashedSeed) / 4294967295.0; // 2^32-1
+    return float2(randomValue, hashedSeed); // Return random value and new seed
+}
+
+void rerollRNGs(uint2 id) {
+    uint seed = id.x + id.y * _Width;
+    for (int i = 0; i < _rngCount; i++) {
+        float2 result = Random(seed);
+        rngs[i] = result.x; // Store the random value
+        seed = uint(result.y); // Update the seed for the next iteration
+    }
+}*/
+
+void generateSurface(uint2 id, Planet planet, int2 pos) {
+    int2 offset = id.xy - pos;
+    uint index = id.y * _Width + id.x;
+    
+    if (dot(offset, offset) <= (int) planet.mass)
+    {
+        Particles[index].stickyToId = planet.id;
+        Particles[index].type = 2;
+        Particles[index].color = float4(1, 0, 0, 1);
+        Particles[index].position = float2(0, 0);
+        Particles[index].mass = 1;
+    }
+
+}
+
+int candidate;
+
+[numthreads(1, 1, 1)]
+void CSAddPlanet(uint2 id : SV_DispatchThreadID) {
+    
+    planets[candidate].mass = 300;
+    planets[candidate].active = 1;
+    planets[candidate].pos = mousePos;
+    planets[candidate].id = candidate;
+    
+    generateSurface(id, planets[candidate], mousePos);
+}
+
+/*
+ * TODO: make particles with high mass sink into the center over time. (Maybe use a weighted grid with A*?)
+ */
+
+[numthreads(1, 1, 1)]
+void CSAddPlayer (uint3 id : SV_DispatchThreadID) {
+    planets[0].mass = 32;
+    planets[0].pos = float2(200, 200);
+
+    //and now generate particles around
+}
+
+[numthreads(1, 1, 1)]
+void CSAddSand (uint3 id : SV_DispatchThreadID) {
+    int2 offset = id.xy - (int2)mousePos;
+    uint index = id.y * _Width + id.x;
+    if (dot(offset, offset) <= 20) {
+        Particles[index].type = 1;
+        Particles[index].color = float4(1, 0, 0, 1);
+        float x = mousePos.x / 200;
+        float y = mousePos.y / 200;
+        if (mousePos.x < 200) x = -1;
+        Particles[index].velocity = float2(x, y);
+        Particles[index].position = float2(0, 0);
+        Particles[index].mass = 1;
+    }
+}
+
+Particle copy(Particle old) {
+    Particle other;
+    other.color = old.color;
+    other.velocity = old.velocity;
+    other.position = old.position;
+    other.type = old.type;
+    other.mass = old.mass;
+    other.stickyToId = old.stickyToId;
+
+    return other;
+}
+
+void CalculateCraterAndApplyImpulse(float2 impactPoint, float2 impactVelocity, float particleMass)
+{
+    // Calculate the crater radius based on the kinetic energy
+    float k = 0.1; // Tweak this value as needed
+    float KE = 0.5 * particleMass * dot(impactVelocity, impactVelocity); // Kinetic energy
+    float craterRadius = k * sqrt(KE);
+
+    // Define the bounds for our search space (a square around the impact point)
+    int2 start = impactPoint - craterRadius;
+    int2 end = impactPoint + craterRadius;
+
+    for (int y = start.y; y < end.y; y++)
+    {
+        for (int x = start.x; x < end.x; x++)
+        {
+            // Calculate the distance from the current point to the impact point
+            float distance = length(float2(x, y) - impactPoint);
+
+            // Only affect particles inside the circular crater radius
+            if (distance <= craterRadius)
+            {
+                uint index = y * _Width + x;
+                Particle p = Particles[index];
+
+                // Check if the particle is part of the planet we are impacting
+                if (p.stickyToId != -1)
+                {
+                    // Identify surface particle (Check neighboring particles for an empty space)
+                    bool isSurface =
+                        (Particles[index - 1].stickyToId != -1) ||
+                        (Particles[index + 1].stickyToId != -1) ||
+                        (Particles[index - _Width].stickyToId != -1) ||
+                        (Particles[index + _Width].stickyToId != -1);
+
+                    if (isSurface)
+                    {
+                        // Apply impulse based on impact direction
+                        float2 impulseDirection = normalize(impactVelocity);
+                        p.velocity += impulseDirection; // Modify this for desired impulse magnitude
+
+                        // Mark the particle as free
+                        p.stickyToId = -1;
+                    }
+                }
+            }
+        }
+    }
+}
+
+int signum(int x)
+{
+    return (x > 0) ? 1 : (x < 0) ? -1 : 0;
+}
+
+int2 bresenham(int2 start, int2 end)
+{
+    int startX = start.x, startZ = start.y, endX = end.x, endZ = end.y;
+    int x, z, t, dx, dz, incx, incz, pdx, pdz, ddx, ddz, deltaslowdirection, deltafastdirection, err;
+    dx = endX - startX;
+    dz = endZ - startZ;
+    incx = signum(dx);
+    incz = signum(dz);
+    if (dx < 0) dx = -dx;
+    if (dz < 0) dz = -dz;
+    bool xFaster = dx > dz;
+    if (xFaster) {
+        pdx = incx; pdz = 0;
+        ddx = incx; ddz = incz;
+        deltaslowdirection = dz;
+        deltafastdirection = dx;
+    } else {
+        pdx = 0; pdz = incz;
+        ddx = incx; ddz = incz;
+        deltaslowdirection = dx;
+        deltafastdirection = dz;
+    }
+
+    x = startX;
+    z = startZ;
+    err = deltafastdirection / 2;
+
+    for (t = 0; t < deltafastdirection; ++t) {
+        err -= deltaslowdirection;
+        if(err < 0) {
+            err += deltafastdirection;
+            int xNew = x + ddx;
+            int zNew = z + ddz;
+            x = xNew;
+            z = zNew;
+        } else {
+            x += pdx;
+            z += pdz;
+        }
+        //blockPosList.add(new BlockPos(x, y, z));
+        Particle p = Particles[z * _Width + x];
+        if (p.stickyToId == -1)
+            return int2(x, z);
+
+    }
+    return int2(-0,-0);
+}
+
+int2 bresenham2D(int2 start, int2 end, int2 center)
+{
+    int startX = start.x, startZ = start.y, endX = end.x, endZ = end.y;
+    int x, z, t, dx, dz, incx, incz, pdx, pdz, ddx, ddz, deltaslowdirection, deltafastdirection, err;
+    dx = endX - startX;
+    dz = endZ - startZ;
+    incx = signum(dx);
+    incz = signum(dz);
+    if (dx < 0) dx = -dx;
+    if (dz < 0) dz = -dz;
+    bool xFaster = dx > dz;
+    if (xFaster) {
+        pdx = incx; pdz = 0;
+        ddx = incx; ddz = incz;
+        deltaslowdirection = dz;
+        deltafastdirection = dx;
+    } else {
+        pdx = 0; pdz = incz;
+        ddx = incx; ddz = incz;
+        deltaslowdirection = dx;
+        deltafastdirection = dz;
+    }
+
+    x = startX;
+    z = startZ;
+    err = deltafastdirection / 2;
+
+    for (t = 0; t < deltafastdirection; ++t) {
+        err -= deltaslowdirection;
+        if(err < 0) {
+            err += deltafastdirection;
+            int xNew = x + ddx;
+            int zNew = z + ddz;
+            x = xNew;
+            z = zNew;
+        } else {
+            x += pdx;
+            z += pdz;
+        }
+
+        const int2 curr = int2(x, z);
+        int2 result = bresenham(curr, center);
+
+        if (result.x != -0 && result.y != -0)
+            return result;
+    }
+    return int2(-0,-0);
+}
+
+Particle findStickyNeightbour(uint index) {
+    Particle p;
+    p = Particles[index - 1];
+    if (p.stickyToId != -1)
+        return p;
+    p = Particles[index + 1];
+    if (p.stickyToId != -1)
+        return p;
+    p = Particles[index - _Width];
+    if (p.stickyToId != -1)
+        return p;
+    p = Particles[index + _Width];
+    if (p.stickyToId != -1)
+        return p;
+    
+    return Particles[index];
+}
+
+// returns index
+uint2 freeSpaceTowards(uint x, uint y, int2 target) {
+    const uint index = y * _Width + x;
+    //const Particle current = Particles[index];
+    const float currDist = distance(target, uint2(x,y));
+    
+    Particle p;
+    p = Particles[index - 1];
+    if (p.stickyToId == -1 && distance(target, p.position) <= currDist)
+        return uint2(x - 1, y);
+    p = Particles[index + 1];
+    if (p.stickyToId == -1 && distance(target, p.position) <= currDist)
+        return uint2(x + 1, y);
+    p = Particles[index - _Width];
+    if (p.stickyToId == -1 && distance(target, p.position) <= currDist)
+        return uint2(x, y - 1);
+    p = Particles[index + _Width];
+    if (p.stickyToId == -1 && distance(target, p.position) <= currDist)
+        return uint2(x, y + 1);
+
+    //TODO: z.B. x=0 - 1 fälle nicht abgedeckt
+    
+    return index;
+}
+
+// Function to calculate distance squared to the center of the plane
+uint distanceSquared(int2 a, int2 ppos) {
+    int2 delta = a - ppos;
+    return delta.x * delta.x + delta.y * delta.y;
+}
+
+bool stuff(int2 from, int2 to, Particle current, int xoffset, int yoffset) {
+    int2 free1 = int2(from.x+xoffset, from.y+yoffset);
+    const uint index = from.y * _Width + from.x;
+    const uint freeIndex = free1.y * _Width + free1.x;
+    float oldDist = distance(from, to);
+    float newDist = distance(free1, to);
+    if (Particles[freeIndex].type == 0 && newDist < oldDist) {  
+        Particles[index].color = float4(0, 0, 0, 1);
+        Particles[index].type = 0;
+        Particles[index].velocity = int2(0, 0);
+        Particles[index].stickyToId = -1;
+            
+        Particles[freeIndex] = current;
+        Particles[freeIndex].color = float4(0, 1, 1, 1);
+        Particles[freeIndex].position = free1;
+        Particles[freeIndex].velocity = int2(0, 0);
+        return true;
+    }
+    return false;
+}
+
+bool atHighLimit(int2 from, int2 to, uint mass) {
+    const uint len = length(to - from);
+    const uint assumedArea = 3.14159 * len * len;
+    
+    return assumedArea > mass + 10000;
+}
+
+bool inCircle(int2 center, int2 border, int2 wanted) {
+    const uint r = length(center - border);
+    const uint d = sqrt((wanted.x-center.x)*(wanted.x-center.x)+(wanted.y-center.y)*(wanted.y-center.y));
+    return r >= d;
+}
+
+void sort(inout int2 array[8], uint length, int2 center) { // Assume 16 is the maximum length for example purposes
+    for (int i = 1; i < length; ++i) {
+        float key = distance(array[i], center);
+        int2 temp = array[i];
+        int j = i - 1;
+
+        while (j >= 0 && distance(array[j], center) > key) {
+            array[j + 1] = array[j];
+            j = j - 1;
+        }
+        array[j + 1] = temp;
+    }
+}
+
+
+void neighbors(inout int2 array[8], int2 from) {
+    array[0] = from + int2(0, 1);
+    array[1] = from + int2(1, 0);
+    array[2] = from + int2(1, 1);
+    array[3] = from + int2(0, -1);
+    array[4] = from + int2(-1, 0);
+    array[5] = from + int2(-1, -1);
+    array[6] = from + int2(1, -1);
+    array[7] = from + int2(-1, 1);
+}
+
+[numthreads(8, 8, 1)]
+void CSFallSand(uint3 id : SV_DispatchThreadID)
+{
+    uint index = id.y * _Width + id.x;
+    const Particle current = copy(Particles[index]);
+
+    if (current.type == 1) { // Check if it's a sand particle
+
+        for (uint i = 0; i < _planetCount; i++) {
+            if (planets[i].active == 0)
+                break;
+            
+            float2 gravityPoint = planets[i].pos;
+        
+            float2 direction = gravityPoint - id.xy;
+            float r = length(direction);
+            float mass1 = current.mass;
+            float mass2 = planets[i].mass;
+            //float G = minG * planets[i].mass;
+            const float G = 7;
+            float forceMagnitude = G * mass1 * mass2 / (r * r); // Assuming both masses are 1
+            float2 forceDirection = normalize(direction);
+
+            Particles[index].velocity += forceDirection * forceMagnitude * dt;
+        }
+
+        float maxSpeed = 10.0; // Adjust as needed
+        if (length(Particles[index].velocity) > maxSpeed) {
+            Particles[index].velocity = normalize(Particles[index].velocity) * maxSpeed;
+        }
+
+        Particle first = copy(Particles[index]);
+        first.velocity = Particles[index].velocity;
+        first.position = id.xy + first.velocity * dt;
+        first.color = float4(0, 1, 0, 1);
+
+        for (uint count = 0; count < 4; count++) {
+            // Calculate the new position
+            int2 newPosition = (int2) (first.position + first.velocity);
+            uint newPositionIndex = newPosition.y * _Width + newPosition.x;
+            
+            Particle other = copy(Particles[newPositionIndex]);
+            Particles[index].type = 0;
+            Particles[index].color = float4(0, 0, 0, 1);
+            
+            if (other.type == 0) {
+                Particles[newPositionIndex] = first;
+                Particles[newPositionIndex].position = newPosition;
+                break;
+            }
+            
+            Particle neighbour = findStickyNeightbour(newPositionIndex);
+            
+            if (other.stickyToId != -1 || neighbour.stickyToId != -1)
+            {
+                float2 vn = normalize(first.velocity);
+                //float2 offsetPos = newPosition;
+                int2 offsetPos = bresenham(newPosition, first.position);
+                
+                //for (; Particles[offsetPos.y * _Width + offsetPos.x].stickyToId != -1; offsetPos -= vn);
+                uint offsetIndex = offsetPos.y * _Width + offsetPos.x;
+                Particles[offsetIndex] = first;
+                Particles[offsetIndex].stickyToId = other.stickyToId;
+                Particles[offsetIndex].velocity = 0;
+                Particles[offsetIndex].type = 2;
+                Particles[offsetIndex].position = offsetPos;
+                planets[other.stickyToId].mass++;
+                return;
+            }
+
+            // Improved collision resolution based on elastic collisions
+            float2 relVelocity = first.velocity - other.velocity;
+            float2 normal = normalize(other.position - first.position);
+
+            float impulse = 100 * dt * 2.0 * other.mass / (first.mass + other.mass) * dot(relVelocity, normal);
+            first.velocity -= impulse * normal;
+            other.velocity += impulse * normal;
+            
+            first.color = float4(1, 1, 0, 1);
+            
+            Particles[newPositionIndex] = copy(first);
+            first = other;
+            index = newPositionIndex;
+        }
+    } else if (current.type == 2) {
+
+/*
+ * A. +-2 Ansatz probieren DONE
+ *
+ * B. Random Streuung Ansatz
+ *
+ * C.1. Radiusvolumen betrachten, wenn ein Nachbarpixel innerhalb Flächenvolumen leer, dann hin bewegen.
+ * C.2. Erwarteter Kreisfächenvolumen durch Radius vergleichen mit tatsächlichem Flächenvolumen aus Masse.
+ */
+        
+        const Planet planet = planets[current.stickyToId];
+        const int2 from = id.xy;
+        const int2 to = planet.pos;
+        //const int2 dir = normalize(to - from);
+        //const int2 right = int2(dir.x, -dir.y);
+        //const int2 left = int2(-dir.x, dir.y);
+        //const int2 hstart = from + right + right;
+        //const int2 hend = from + left;
+
+       /* if (from.x - to.x <= 0 && from.y - to.y <= 0 && from.x - to.x <= from.y - to.y)
+        {
+            Particles[index].color = float4(0, 0, 1, 1);
+            bool done = stuff(from, to,  current, 0, 1);
+            if (done) return;
+            done = stuff(from, to, current, 1, 1);
+            if (done) return;
+            done = stuff(from, to, current, 1, 0);
+
+            if (done) return;
+            done = stuff(from, to, current, 2, 1);
+            if (done) return;
+            done = stuff(from, to, current, -1, 1);
+            //evtl
+            if (done) return;
+            done = stuff(from, to, current, -1, 0);
+            if (done) return;
+            done = stuff(from, to, current, -2, 1);
+        }*/
+
+        //if (!atHighLimit(from, to, planet.mass)) return;
+        
+        int l = 2;
+        for (int i=-l; i<=l; i++) {
+            for (int j=-l; j<=l; j++) {
+               // Particles[index].color = float4(0, 0, 1, 1);
+                //if (j==0 && i == 0) continue;
+                //if (!inCircle(to, from, int2(to.x+i, to.y+j))) continue;
+                bool done = stuff(from, to,  current, i, j);
+                if (done) return;
+            }
+        }
+        
+        /*
+        int2 arr[8];
+        neighbors(arr, from);
+        sort(arr, 8, to);
+        for (int i = 0; i < 8; i++)
+        {
+            int2 free = arr[i];
+            uint freeIndex = free.y * _Width + free.x;
+            
+            //if (!inCircle(to, from, free)) continue;
+            if (Particles[index].type != 0) continue;
+
+            float oldDist = distance(from, to);
+            float newDist = distance(free, to);
+
+            if (oldDist <= newDist) continue;
+
+            Particles[index].color = float4(0, 0, 0, 1);
+            Particles[index].type = 0;
+            Particles[index].velocity = int2(0, 0);
+            Particles[index].stickyToId = -1;
+            
+            Particles[freeIndex] = current;
+            Particles[freeIndex].color = float4(0, 1, 1, 1);
+            Particles[freeIndex].position = free;
+            Particles[freeIndex].velocity = int2(0, 0);
+        }*/
+        
+        /*
+        const int2 candidate = bresenham2D(hstart, hend, to);
+        const int newIndex = candidate.y * _Width + candidate.x;
+        if (candidate.x != -0 && candidate.y != -0)
+        {
+            Particles[index].color = float4(0, 0, 0, 1);
+            Particles[index].type = 0;
+            Particles[index].velocity = int2(0, 0);
+            Particles[index].stickyToId = -1;
+            
+            Particles[newIndex] = current;
+            Particles[newIndex].color = float4(0, 0, 1, 1);
+            Particles[newIndex].position = candidate;
+            Particles[newIndex].velocity = int2(0, 0);
+        }*/
+    }
+}
+
+[numthreads(8, 8, 1)]
+void CSTransformToTexture (uint3 id : SV_DispatchThreadID) {
+    uint index = id.y * _Width + id.x;
+    Particle current = Particles[index];
+    ResultTexture[id.xy] = current.color;
+}

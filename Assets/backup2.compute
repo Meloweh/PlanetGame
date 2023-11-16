@@ -1,0 +1,125 @@
+#pragma kernel CSAddSand
+#pragma kernel CSFallSand
+#pragma kernel CSTransformToTexture
+
+struct Particle {
+    float4 color;
+    float2 velocity;
+    uint type;  // 0 for empty, 1 for sand, etc.
+    uint needsToFall; // 0 for stay, 1 for fall
+    uint mass;
+    float2 position;
+};
+
+RWStructuredBuffer<Particle> Particles;
+RWTexture2D<float4> ResultTexture;
+float2 mousePos;
+uint _Width;
+
+// Gravity Point
+float2 gravityPoint = float2(200, 200);
+float gravityStrength = 2; // The strength of the gravitational pull
+
+[numthreads(1, 1, 1)]
+void CSAddSand (uint3 id : SV_DispatchThreadID) {
+    int2 offset = id.xy - (int2)mousePos;
+    uint index = id.y * _Width + id.x;
+    if (dot(offset, offset) <= 1) {
+        Particles[index].type = 1;
+        Particles[index].color = float4(1, 0, 0, 1);
+        float x = mousePos.x / 200;
+        float y = mousePos.y / 200;
+        if (mousePos.x < 200) x = -1;
+        Particles[index].velocity = float2(x, y);
+        Particles[index].position = float2(0, 0);
+        Particles[index].mass = 1;
+    }
+}
+
+Particle copy(Particle old) {
+    Particle other;
+    other.color = old.color;
+    other.velocity = old.velocity;
+    other.position = old.position;
+    other.type = old.type;
+    other.mass = old.mass;
+    other.needsToFall = old.needsToFall;
+
+    return other;
+}
+
+[numthreads(8, 8, 1)]
+void CSFallSand(uint3 id : SV_DispatchThreadID) {
+    uint index = id.y * _Width + id.x;
+    Particle current = Particles[index];
+
+    if (current.type == 1) { // Check if it's a sand particle
+        float2 gravityPoint = float2(_Width / 2, _Width / 2);
+        
+        float2 direction = gravityPoint - id.xy;
+        float r = length(direction);
+        float G = 700.0; // Arbitrary gravitational constant, adjust for visual effects
+        float mass1 = 1.0;
+        float mass2 = 1.0;
+        float forceMagnitude = G * mass1 * mass2 / (r * r); // Assuming both masses are 1
+        float2 forceDirection = normalize(direction);
+
+        Particles[index].velocity += forceDirection * forceMagnitude;
+
+        float maxSpeed = 10.0; // Adjust as needed
+        if (length(Particles[index].velocity) > maxSpeed) {
+            Particles[index].velocity = normalize(Particles[index].velocity) * maxSpeed;
+        }
+
+        Particle first = copy(Particles[index]);
+        first.velocity = Particles[index].velocity;
+        first.position = id.xy + first.velocity;
+        first.color = float4(0, 1, 0, 1);
+        
+        for (uint count = 0; count < 4; count++) {
+            // Calculate the new position
+            int2 newPosition = first.position + (int2)(first.velocity);
+            uint newPositionIndex = newPosition.y * _Width + newPosition.x;
+            
+            Particle other = copy(Particles[newPositionIndex]);
+            Particles[index].type = 0;
+            Particles[index].color = float4(0, 0, 0, 1);
+            
+            if (other.type == 0) {
+                Particles[newPositionIndex] = first;
+                break;
+            }
+
+            float2 relVelocity = first.velocity - other.velocity;
+            float2 normal = normalize(other.position - first.position);
+            float2 tangent = float2(-normal.y, normal.x);
+
+            float v1n = dot(first.velocity, normal);
+            float v1t = dot(first.velocity, tangent);
+            float v2n = dot(other.velocity, normal);
+            float v2t = dot(other.velocity, tangent);
+
+            float m1 = first.mass;
+            float m2 = other.mass;
+
+            float v1n_prime = (v1n * (m1 - m2) + 2.0 * m2 * v2n) / (m1 + m2);
+            float v2n_prime = (v2n * (m2 - m1) + 2.0 * m1 * v1n) / (m1 + m2);
+
+            first.velocity = v1n_prime * normal + v1t * tangent;
+            other.velocity = v2n_prime * normal + v2t * tangent;
+
+            first.color = float4(1, 1, 0, 1);
+
+            Particles[newPositionIndex] = copy(first);
+            first = other;
+            index = newPositionIndex;
+        }
+    }
+}
+
+[numthreads(8, 8, 1)]
+void CSTransformToTexture (uint3 id : SV_DispatchThreadID) {
+    uint index = id.y * _Width + id.x;
+    Particle current = Particles[index];
+    ResultTexture[id.xy] = current.color;
+}
