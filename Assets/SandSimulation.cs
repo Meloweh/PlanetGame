@@ -1,3 +1,4 @@
+using System;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,8 +22,9 @@ public class SandSimulation : MonoBehaviour {
         public int stickyToId;
         public uint mass;
         public float2 position;
-        public int n1, n2, n3;
+        public int3 neighbor;
         public uint pressure;
+        public uint falling;
     }
     
     struct Planet {
@@ -66,7 +68,7 @@ public class SandSimulation : MonoBehaviour {
 
         rngBuffer = new ComputeBuffer(rngCount, sizeof(uint));
 
-        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 60);//44
+        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 64);//44
         particleData = new Particle[simulationTexture.width * simulationTexture.height];
         for (int i = 0; i < particleData.Length; i++) {
             particleData[i].color = new Vector4(0, 0, 0, 1);
@@ -75,8 +77,9 @@ public class SandSimulation : MonoBehaviour {
             particleData[i].stickyToId = -1; // Initialize to 0
             particleData[i].mass = 0;
             particleData[i].position = Vector2.zero;
-            particleData[i].n1 = particleData[i].n2 = particleData[i].n3 = -1;
+            particleData[i].neighbor = new int3(-1,-1,-1);
             particleData[i].pressure = 0;
+            particleData[i].falling = 0;
         }
         particleBuffer.SetData(particleData);
 
@@ -122,7 +125,15 @@ public class SandSimulation : MonoBehaviour {
         SandComputeShader.Dispatch(fallSandKernelHandle, simulationTexture.width / 8, simulationTexture.height / 8, 1);
         //SandComputeShader.Dispatch(updateSandKernelHandle, simulationTexture.width / 8, simulationTexture.height / 8, 1); // Dispatch the update kernel after the fall kernel
 
-        if (Input.GetKey(KeyCode.D) && Time.time > lastActionTime + actionCooldown) {
+        if (Input.GetKey(KeyCode.W)) {print("; ");
+            particleBuffer.GetData(particleData);
+            foreach (Particle p in particleData)
+            {
+                if (p.type == 2)
+                print(p.pressure + "; ");
+            }
+        }
+        else if (Input.GetKey(KeyCode.D) && Time.time > lastActionTime + actionCooldown) {
             lastActionTime = Time.time;
             particleBuffer.GetData(particleData);
             planetBuffer.GetData(planetData);
