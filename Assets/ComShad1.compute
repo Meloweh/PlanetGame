@@ -18,6 +18,8 @@ struct Particle {
     int stickyToId; // 0 for stay, 1 for fall
     uint mass;
     float2 position;
+    //uint neighbor[8];
+    //uint pressure;
 };
 
 RWStructuredBuffer<Particle> Particles;
@@ -443,6 +445,32 @@ void neighbors(inout int2 array[8], int2 from) {
     array[7] = from + int2(-1, 1);
 }
 
+/*
+ * A. +-2 Ansatz probieren DONE
+ *
+ * B. Random Streuung Ansatz
+ *
+ * C.1. Radiusvolumen betrachten, wenn ein Nachbarpixel innerhalb Flächenvolumen leer, dann hin bewegen.
+ * C.2. Erwarteter Kreisfächenvolumen durch Radius vergleichen mit tatsächlichem Flächenvolumen aus Masse.
+ */
+const uint allowedDifference = 50;
+bool isHeightValid(uint index, Planet planet) {
+    const Particle current = Particles[index];
+    const uint mass = planet.mass;
+    const uint dist = distance(current.position, planet.pos);
+    const uint r = sqrt(mass / 3.14159265358979f);
+    //if (r > dist - allowedDifference) return false;
+    if (dist > r + allowedDifference) return false;
+    /*if (median + allowedDifference < dist || dist < median - allowedDifference) {
+        return false;
+    }*/
+    //const uint predArea = PI * dist * dist;
+    //if (predArea <= mass + allowedDifference) {
+    //    return true;
+    //}
+    return true;
+}
+
 [numthreads(8, 8, 1)]
 void CSFallSand(uint3 id : SV_DispatchThreadID)
 {
@@ -528,15 +556,14 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             index = newPositionIndex;
         }
     } else if (current.type == 2) {
-
-/*
- * A. +-2 Ansatz probieren DONE
- *
- * B. Random Streuung Ansatz
- *
- * C.1. Radiusvolumen betrachten, wenn ein Nachbarpixel innerhalb Flächenvolumen leer, dann hin bewegen.
- * C.2. Erwarteter Kreisfächenvolumen durch Radius vergleichen mit tatsächlichem Flächenvolumen aus Masse.
- */
+        /*
+         * A. +-2 Ansatz probieren DONE
+         *
+         * B. Random Streuung Ansatz
+         *
+         * C.1. Radiusvolumen betrachten, wenn ein Nachbarpixel innerhalb Flächenvolumen leer, dann hin bewegen.
+         * C.2. Erwarteter Kreisfächenvolumen durch Radius vergleichen mit tatsächlichem Flächenvolumen aus Masse.
+         */
         
         const Planet planet = planets[current.stickyToId];
         const int2 from = id.xy;
@@ -571,7 +598,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
         if (!hasStickyNeighbor(index)) {
             Particle newp = free(current);
             Particles[index] = newp;
-        } else {
+        } else if (!isHeightValid(index, planet)) {
             int l = 2;
             for (int i=-l; i<=l; i++) {
                 for (int j=-l; j<=l; j++) {
