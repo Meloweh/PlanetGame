@@ -21,6 +21,8 @@ public class SandSimulation : MonoBehaviour {
         public int stickyToId;
         public uint mass;
         public float2 position;
+        public int n1, n2, n3;
+        public uint pressure;
     }
     
     struct Planet {
@@ -40,10 +42,6 @@ public class SandSimulation : MonoBehaviour {
     int candidate = -1;
 
     //private Random random = new Random();
-
-    //private void spawnPlanet(Vector2 pos) {
-        
-    //}
 
     private void Start() {
         int width = (int)canvas.pixelRect.width;
@@ -68,7 +66,7 @@ public class SandSimulation : MonoBehaviour {
 
         rngBuffer = new ComputeBuffer(rngCount, sizeof(uint));
 
-        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 44);
+        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 60);//44
         particleData = new Particle[simulationTexture.width * simulationTexture.height];
         for (int i = 0; i < particleData.Length; i++) {
             particleData[i].color = new Vector4(0, 0, 0, 1);
@@ -77,6 +75,8 @@ public class SandSimulation : MonoBehaviour {
             particleData[i].stickyToId = -1; // Initialize to 0
             particleData[i].mass = 0;
             particleData[i].position = Vector2.zero;
+            particleData[i].n1 = particleData[i].n2 = particleData[i].n3 = -1;
+            particleData[i].pressure = 0;
         }
         particleBuffer.SetData(particleData);
 
