@@ -45,6 +45,8 @@ RWStructuredBuffer<Planet> planets;
 RWStructuredBuffer<uint> rngs;
 uint _rngCount;
 
+
+
 // Hash function from H. Schechter & R. Bridson, goo.gl/RXiKaH
 /*
 uint Hash(uint s)
@@ -140,6 +142,28 @@ Particle copy(Particle old) {
 
     return other;
 }
+
+Particle free(Particle old) {
+    Particle other;
+    other.color = float4(0,1,0,1);
+    other.velocity = old.velocity;
+    other.position = old.position;
+    other.type = 1;
+    other.mass = old.mass;
+    other.stickyToId = -1;
+
+    return other;
+}
+
+
+bool same(Particle p1, Particle p2) {
+    float epsilon = 0.0001; // Adjust this value based on your precision requirements
+    if (abs(p1.position.x - p2.position.x) < epsilon && abs(p1.position.y - p2.position.y) < epsilon) {
+        return true;
+    }
+    return false;
+}
+
 
 void CalculateCraterAndApplyImpulse(float2 impactPoint, float2 impactVelocity, float particleMass)
 {
@@ -310,6 +334,24 @@ Particle findStickyNeightbour(uint index) {
     return Particles[index];
 }
 
+bool hasStickyNeighbor(uint index) {
+    Particle p;
+    p = Particles[index - 1];
+    if (p.stickyToId != -1)
+        return true;
+    p = Particles[index + 1];
+    if (p.stickyToId != -1)
+        return true;
+    p = Particles[index - _Width];
+    if (p.stickyToId != -1)
+        return true;
+    p = Particles[index + _Width];
+    if (p.stickyToId != -1)
+        return true;
+    
+    return false;
+}
+
 // returns index
 uint2 freeSpaceTowards(uint x, uint y, int2 target) {
     const uint index = y * _Width + x;
@@ -439,7 +481,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
 
         for (uint count = 0; count < 4; count++) {
             // Calculate the new position
-            int2 newPosition = (int2) (first.position + first.velocity);
+            int2 newPosition = first.position + first.velocity;
             uint newPositionIndex = newPosition.y * _Width + newPosition.x;
             
             Particle other = copy(Particles[newPositionIndex]);
@@ -526,17 +568,22 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
         }*/
 
         //if (!atHighLimit(from, to, planet.mass)) return;
-        
-        int l = 2;
-        for (int i=-l; i<=l; i++) {
-            for (int j=-l; j<=l; j++) {
-               // Particles[index].color = float4(0, 0, 1, 1);
-                //if (j==0 && i == 0) continue;
-                //if (!inCircle(to, from, int2(to.x+i, to.y+j))) continue;
-                bool done = stuff(from, to,  current, i, j);
-                if (done) return;
+        if (!hasStickyNeighbor(index)) {
+            Particle newp = free(current);
+            Particles[index] = newp;
+        } else {
+            int l = 2;
+            for (int i=-l; i<=l; i++) {
+                for (int j=-l; j<=l; j++) {
+                   // Particles[index].color = float4(0, 0, 1, 1);
+                    //if (j==0 && i == 0) continue;
+                    //if (!inCircle(to, from, int2(to.x+i, to.y+j))) continue;
+                    bool done = stuff(from, to,  current, i, j);
+                    if (done) return;
+                }
             }
         }
+
         
         /*
         int2 arr[8];

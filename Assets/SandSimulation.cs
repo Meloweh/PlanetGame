@@ -183,13 +183,16 @@ public class SandSimulation : MonoBehaviour {
             SandComputeShader.SetVector("mousePos", new Vector4(texMousePos.x, texMousePos.y, 0, 0));
             
             SandComputeShader.Dispatch(addSandKernelHandle, simulationTexture.width, simulationTexture.height, 1);
-        } if (Input.GetMouseButtonDown(1)) {
+        } else if (Input.GetMouseButtonDown(1)) {
             SandComputeShader.SetInt("candidate", ++candidate);
             Vector2 mousePos = Camera.main.ScreenToViewportPoint(Input.mousePosition);
             uint2 texMousePos = new uint2((uint)(mousePos.x * simulationTexture.width), (uint)(mousePos.y * simulationTexture.height));
             SandComputeShader.SetVector("mousePos", new Vector4(texMousePos.x, texMousePos.y, 0, 0));
 
             SandComputeShader.Dispatch(addPlanetKernelHandle, simulationTexture.width, simulationTexture.height, 1);
+        } else if (Input.GetKeyDown(KeyCode.A) && Time.time > lastActionTime + actionCooldown) {
+            lastActionTime = Time.time;
+            
         }
     }
 
