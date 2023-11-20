@@ -34,7 +34,7 @@ float gravityStrength = 2;
 float dt;
 //const float G = 7 * 10 * 1000 * 2;
 const float minG = 7 * 10 * 100;
-const uint limit = 500000;
+const uint limit = 500;
 
 uint _planetCount;
 
@@ -169,7 +169,7 @@ void CSAddSand (uint3 id : SV_DispatchThreadID) {
         float x = mousePos.x / 200;
         float y = mousePos.y / 200;
         if (mousePos.x < 200) x = -1;
-        Particles[index].velocity = float2(x, y);
+        Particles[index].velocity = float2(-1, 0);
         Particles[index].position = float2(0, 0);
         Particles[index].mass = 1;
     }
@@ -450,7 +450,7 @@ int closerStuff(const int2 from, const int xoffset, const int yoffset) {
     float newDist = distance(free1, to);
     if (Particles[index].stickyToId != -1 && newDist < oldDist) {
         //Particles[index].color = float4(0,0,1,1);
-        Particles[index].color += float4(0, 0, 1, 1);
+        //Particles[index].color += float4(0, 0, 1, 1);
         return index;
     }
     return -1;
@@ -465,16 +465,16 @@ uint3 getCloserStuff(const int2 from) {
             if (index > -1) {
                 if (result.x == -1){
                     //Particles[index].color = float4(0,0,1,1);
-                    Particles[index].color += float4(0, 0, 1, 1);
+                    //Particles[index].color += float4(0, 0, 1, 1);
                     result.x = index;
                 } else if (result.y == -1){
                     //Particles[index].color = float4(0,0,1,1);
-                    Particles[index].color += float4(0, 0, 1, 1);
+                    //Particles[index].color += float4(0, 0, 1, 1);
 
                     result.y = index;
                 } else if (result.z == -1) {
                     //Particles[index].color = float4(0,0,1,1);
-                    Particles[index].color += float4(0, 0, 1, 1);
+                    //Particles[index].color += float4(0, 0, 1, 1);
 
                     result.z = index;
                     return result;
@@ -507,16 +507,25 @@ void updatePressure(const uint index) {
     //current.pressure = 1 + p1.pressure + p2.pressure + p3.pressure;
     //p1.pressure = 1 + current.pressure;
 
-    if (current.pressure > limit) current.falling = 1; else current.falling = 0;
+    if (current.pressure > 50)
+    {
+        current.color = float4(1, 0, 0, 1);
+        current.falling = 1;
+    } else
+    {
+        current.color = float4(1, 1, 1, 1);
 
-    current.color = float4(0.1, 0.1, 0, 1);
+        current.falling = 0;
+    }
+
+    //current.color = float4(0.1, 0.1, 0, 1);
     const int3 neighborIndices = getCloserStuff(current.position);
     //if (neighborIndices.x == -1 && neighborIndices.y == -1 && neighborIndices.z == -1) current.color = float4(1, 1, 1, 1);
     if (neighborIndices.x > -1) {
         Particle p1 = Particles[neighborIndices.x];
         p1.pressure = max(p1.pressure, 1 + current.pressure);
-        current.color = float4(1, 1, 1, 1);
-        if (p1.pressure > limit) p1.falling = 1; else p1.falling = 0;
+        //current.color = float4(1, 1, 1, 1);
+        //if (p1.pressure > limit) p1.falling = 1; else p1.falling = 0;
         current.falling *= p1.falling;
         //p1.color += float4(0, 0, p1.pressure / 128, 1);
         //p1.color += float4(0, 0, 0.1, 1);
@@ -525,7 +534,7 @@ void updatePressure(const uint index) {
     if (neighborIndices.y > -1) {
         Particle p2 = Particles[neighborIndices.y];
         p2.pressure = max(p2.pressure, 1 + current.pressure);
-        if (p2.pressure > limit) p2.falling = 1; else p2.falling = 0;
+        //if (p2.pressure > limit) p2.falling = 1; else p2.falling = 0;
         current.falling *= p2.falling;
         //p2.color += float4(0, 0, 0.1, 1);
         Particles[neighborIndices.y] = p2;
@@ -533,12 +542,13 @@ void updatePressure(const uint index) {
     if (neighborIndices.z > -1) {
         Particle p3 = Particles[neighborIndices.z];
         p3.pressure = max(p3.pressure, 1 + current.pressure);
-        if (p3.pressure > limit) p3.falling = 1; else p3.falling = 0;
+        //if (p3.pressure > limit) p3.falling = 1; else p3.falling = 0;
         current.falling *= p3.falling;
         //p3.color += float4(0, 0, 0.1, 1);
         Particles[neighborIndices.z] = p3;
     }
-    
+
+    current.color = float4(0.1*current.pressure/200, 0.1*current.pressure/200, 0.4, 1);
     Particles[index] = current;
 }
 
@@ -555,7 +565,7 @@ bool stuff(int2 from, int2 to, Particle current, int xoffset, int yoffset) {
         Particles[index].stickyToId = -1;
             
         Particles[freeIndex] = current;
-        //Particles[freeIndex].color = float4(0, 1, 1, 1);
+        Particles[freeIndex].color = float4(0, 1, 1, 1);
         Particles[freeIndex].position = free1;
         Particles[freeIndex].velocity = int2(0, 0);
         return true;
@@ -711,6 +721,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                 Particles[offsetIndex].velocity = 0;
                 Particles[offsetIndex].type = 2;
                 Particles[offsetIndex].position = offsetPos;
+                Particles[offsetIndex].neighbor.x = 2;
                 planets[other.stickyToId].mass++;
                 return;
             }
@@ -740,6 +751,16 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             Particle newp = free(current);
             Particles[index] = newp;
         } else if (newCurrent.falling == 1) {
+            int l = 2;
+            for (int i=-l; i<=l; i++) {
+                for (int j=-l; j<=l; j++) {
+                    bool done = stuff(from, to,  newCurrent, i, j);
+                    if (done) return;
+                }
+            }
+        } else if (Particles[index].neighbor.x > 0)
+        {
+            Particles[index].neighbor.x--;
             int l = 2;
             for (int i=-l; i<=l; i++) {
                 for (int j=-l; j<=l; j++) {
