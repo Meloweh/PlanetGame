@@ -1,17 +1,24 @@
 using System;
+using System.Collections;
 using Unity.Mathematics;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 using Random = Unity.Mathematics.Random;
 
 public class SandSimulation : MonoBehaviour {
     public ComputeShader SandComputeShader;
     private RenderTexture simulationTexture;
+    public GameObject sampe;
     
     private int addSandKernelHandle;
     private int fallSandKernelHandle;
     private int transformKernelHandle;
     private int addPlanetKernelHandle;
+    private int captureKernelHandle;
+    
+    private Rect areaToCapture;
 
     public RawImage rawImageDisplay;
     public Canvas canvas;
@@ -34,10 +41,11 @@ public class SandSimulation : MonoBehaviour {
         public uint active;
     }
 
-    private ComputeBuffer particleBuffer, planetBuffer, rngBuffer, atomicCounter;
+    private ComputeBuffer particleBuffer, planetBuffer, rngBuffer, atomicCounter, pressureBuffer;
 
     private Particle[] particleData;
     private Planet[] planetData;
+    private int[] pressureData;
     
     const int planetCount = 32;
     const int rngCount = 32;
@@ -65,6 +73,7 @@ public class SandSimulation : MonoBehaviour {
         fallSandKernelHandle = SandComputeShader.FindKernel("CSFallSand");
         transformKernelHandle = SandComputeShader.FindKernel("CSTransformToTexture");
         addPlanetKernelHandle = SandComputeShader.FindKernel("CSAddPlanet");
+        captureKernelHandle = SandComputeShader.FindKernel("CSCaptureArea");
 
         rngBuffer = new ComputeBuffer(rngCount, sizeof(uint));
 
@@ -104,13 +113,75 @@ public class SandSimulation : MonoBehaviour {
             planetData[i].active = 0;
         }
         planetBuffer.SetData(planetData);
-       
+
+        const int pressureSize = 4 * 4;
+        pressureBuffer = new ComputeBuffer(pressureSize, sizeof(int));
+        pressureData = new int[pressureSize];
+        pressureBuffer.SetData(pressureData);
+        SandComputeShader.SetBuffer(fallSandKernelHandle, "pressureIndices", pressureBuffer);
         
         SandComputeShader.SetBuffer(fallSandKernelHandle, "planets", planetBuffer);
         SandComputeShader.SetBuffer(addPlanetKernelHandle, "planets", planetBuffer);
 
+        areaToCapture = new Rect(300, 300, 600, 600);
+        Vector4 areaToCaptureVec = new Vector4(areaToCapture.x, areaToCapture.y, areaToCapture.width, areaToCapture.height);
+        SandComputeShader.SetVector("areaToCapture", areaToCaptureVec);
+        SandComputeShader.SetBuffer(captureKernelHandle, "Particles", particleBuffer);
 
         SandComputeShader.SetTexture(transformKernelHandle, "ResultTexture", simulationTexture);
+    }
+
+    Texture2D ConvertRenderTextureToTexture2D(RenderTexture rTex) {
+        Texture2D tex = new Texture2D(rTex.width, rTex.height, TextureFormat.RGBA32, false);
+        RenderTexture.active = rTex;
+        tex.ReadPixels(new Rect(0, 0, rTex.width, rTex.height), 0, 0);
+        tex.Apply();
+        RenderTexture.active = null;
+        return tex;
+    }
+    
+    private bool capturing;
+    void DoCapture() {
+        if (capturing) return;
+        capturing = true;
+
+        RenderTexture areaTexture = new RenderTexture((int)areaToCapture.width, (int)areaToCapture.height, 24);
+        areaTexture.enableRandomWrite = true;
+        areaTexture.Create();
+
+        SandComputeShader.SetTexture(captureKernelHandle, "AreaTexture", areaTexture);
+        SandComputeShader.Dispatch(captureKernelHandle, (int)areaToCapture.width, (int)areaToCapture.height, 1);
+        
+        IEnumerator DoReadbackCoroutine() {
+            //SandComputeShader.Dispatch(kernelHandle1, ...);
+            //SandComputeShader.Dispatch(kernelHandle2, ...);
+            SandComputeShader.Dispatch(captureKernelHandle, (int)areaToCapture.width, (int)areaToCapture.height, 1);
+
+            bool isReadbackComplete = false;
+            AsyncGPUReadback.Request(areaTexture, 0, data => {
+
+                if (sampe != null && areaTexture != null) {
+                    SpriteRenderer renderer = sampe.GetComponent<SpriteRenderer>();
+                    if (renderer == null) {
+                        Debug.print("No renderer for sample");
+                    } else {
+                        Texture2D tex = ConvertRenderTextureToTexture2D(areaTexture);
+                        Sprite newSprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        renderer.sprite = newSprite;
+                        
+                        //renderer.material.mainTexture = areaTexture;
+                        Debug.print("Set texture?");
+                    }
+                }
+
+                capturing = false;
+                isReadbackComplete = true;
+            });
+
+            yield return new WaitUntil(() => isReadbackComplete);
+        }
+
+        StartCoroutine(DoReadbackCoroutine());
     }
     
     private float actionCooldown = 0.1f; // Cooldown time in seconds.
@@ -132,8 +203,9 @@ public class SandSimulation : MonoBehaviour {
                 if (p.type == 2)
                 print(p.pressure + "; ");
             }
-        }
-        else if (Input.GetKey(KeyCode.D) && Time.time > lastActionTime + actionCooldown) {
+        } else if (Input.GetKeyUp(KeyCode.C)) {
+            DoCapture();
+        } else if (Input.GetKey(KeyCode.D) && Time.time > lastActionTime + actionCooldown) {
             lastActionTime = Time.time;
             particleBuffer.GetData(particleData);
             planetBuffer.GetData(planetData);
