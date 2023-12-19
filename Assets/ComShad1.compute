@@ -3,6 +3,7 @@
 #pragma kernel CSTransformToTexture
 #pragma kernel CSAddPlanet
 #pragma kernel CSCaptureArea
+#pragma kernel CSConvertTextureToParticles
 
 /*
  * Particle types:
@@ -29,6 +30,9 @@ RWTexture2D<float4> ResultTexture;
 
 RWTexture2D<float4> AreaTexture;
 float4 areaToCapture;
+RWTexture2D<float4> InputTexture;
+uint2 PastePosition;
+uint2 AreaSize;
 
 float2 mousePos;
 uint _Width;
@@ -138,6 +142,43 @@ void generateSurface(uint2 id, Planet planet, int2 pos) {
         p.mass = 1;
         p.pressure = 1;
         Particles[index] = p;
+    }
+}
+
+/*
+[numthreads(8, 8, 1)]
+void CSConvertTextureToParticles(uint3 id : SV_DispatchThreadID) {
+    uint2 texCoord = id.xy;
+    uint2 bufferCoord = texCoord + PastePosition;
+
+    // Check if bufferCoord is within the bounds of the particle buffer
+    if (bufferCoord.x < _Width && bufferCoord.y < _Width) {
+        const uint bufferIndex = bufferCoord.y * _Width + bufferCoord.x;
+        uint index = id.y * _Width + id.x;
+        //const float4 color = AreaTexture.Load(int3(texCoord, 0));//InputTexture.Load(int3(texCoord, 0));
+        Particle p = matter();
+        p.color = AreaTexture[id.xy];
+        p.position = float2(texCoord.x, texCoord.y);
+        p.type = 0;
+        Particles[bufferIndex] = p;
+    }
+}*/
+
+[numthreads(8, 8, 1)]
+void CSConvertTextureToParticles(uint3 id : SV_DispatchThreadID) {
+    uint2 texCoord = id.xy;
+    uint2 bufferCoord = texCoord + PastePosition;
+
+    // Check if bufferCoord is within the bounds of the particle buffer
+    if (bufferCoord.x < _Width && bufferCoord.y < _Width) {
+        const uint bufferIndex = bufferCoord.y * _Width + bufferCoord.x;
+        uint index = id.y * _Width + id.x;
+        const float4 color = InputTexture[id.xy].xyzw;//InputTexture.Load(int3(texCoord, 0));
+        Particle p = matter();
+        p.color = color;//AreaTexture.Load(int3(texCoord, 0));//AreaTexture[id.xy];
+        p.position = float2(texCoord.x, texCoord.y);
+        p.type = 0;
+        Particles[bufferIndex] = p;
     }
 }
 

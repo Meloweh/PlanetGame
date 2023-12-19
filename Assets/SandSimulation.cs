@@ -11,13 +11,16 @@ public class SandSimulation : MonoBehaviour {
     public ComputeShader SandComputeShader;
     private RenderTexture simulationTexture;
     public GameObject sampe;
+    public Texture2D tex, myTexture;
+    public RenderTexture renderTexture;
     
     private int addSandKernelHandle;
     private int fallSandKernelHandle;
     private int transformKernelHandle;
     private int addPlanetKernelHandle;
     private int captureKernelHandle;
-    
+    private int convertTextureToParticlesHandle;
+
     private Rect areaToCapture;
 
     public RawImage rawImageDisplay;
@@ -51,6 +54,8 @@ public class SandSimulation : MonoBehaviour {
     const int rngCount = 32;
     int candidate = -1;
 
+    private RenderTexture areaTexture;
+
     //private Random random = new Random();
 
     private void Start() {
@@ -68,12 +73,12 @@ public class SandSimulation : MonoBehaviour {
         SandComputeShader.SetInt("_rngCount", rngCount);
         SandComputeShader.SetInt("candidate", candidate);
 
-
         addSandKernelHandle = SandComputeShader.FindKernel("CSAddSand");
         fallSandKernelHandle = SandComputeShader.FindKernel("CSFallSand");
         transformKernelHandle = SandComputeShader.FindKernel("CSTransformToTexture");
         addPlanetKernelHandle = SandComputeShader.FindKernel("CSAddPlanet");
         captureKernelHandle = SandComputeShader.FindKernel("CSCaptureArea");
+        convertTextureToParticlesHandle = SandComputeShader.FindKernel("CSConvertTextureToParticles");
 
         rngBuffer = new ComputeBuffer(rngCount, sizeof(uint));
 
@@ -127,6 +132,29 @@ public class SandSimulation : MonoBehaviour {
         Vector4 areaToCaptureVec = new Vector4(areaToCapture.x, areaToCapture.y, areaToCapture.width, areaToCapture.height);
         SandComputeShader.SetVector("areaToCapture", areaToCaptureVec);
         SandComputeShader.SetBuffer(captureKernelHandle, "Particles", particleBuffer);
+        SandComputeShader.SetBuffer(convertTextureToParticlesHandle, "Particles", particleBuffer);
+        
+        areaTexture = new RenderTexture((int)areaToCapture.width, (int)areaToCapture.height, 24);
+        areaTexture.enableRandomWrite = true;
+        areaTexture.Create();
+
+        myTexture = new Texture2D(150, 150, TextureFormat.RGB24, false);
+        for (int x = 0; x < myTexture.width; x++)
+        {
+            for (int y = 0; y < myTexture.height; y++)
+            {
+                // Set the pixel to yellow
+                myTexture.SetPixel(x, y, Color.yellow);
+            }
+        }
+        myTexture.Apply();
+
+        //copy to rendertexture
+        RenderTexture.active = areaTexture;
+        //Graphics.Blit(tex, renderTexture);
+
+        SandComputeShader.SetTexture(captureKernelHandle, "AreaTexture", areaTexture);
+        //SandComputeShader.SetTexture(convertTextureToParticlesHandle, "AreaTexture", areaTexture);
 
         SandComputeShader.SetTexture(transformKernelHandle, "ResultTexture", simulationTexture);
     }
@@ -144,13 +172,8 @@ public class SandSimulation : MonoBehaviour {
     void DoCapture() {
         if (capturing) return;
         capturing = true;
-
-        RenderTexture areaTexture = new RenderTexture((int)areaToCapture.width, (int)areaToCapture.height, 24);
-        areaTexture.enableRandomWrite = true;
-        areaTexture.Create();
-
-        SandComputeShader.SetTexture(captureKernelHandle, "AreaTexture", areaTexture);
-        SandComputeShader.Dispatch(captureKernelHandle, (int)areaToCapture.width, (int)areaToCapture.height, 1);
+        
+        //SandComputeShader.Dispatch(captureKernelHandle, (int)areaToCapture.width, (int)areaToCapture.height, 1);
         
         IEnumerator DoReadbackCoroutine() {
             //SandComputeShader.Dispatch(kernelHandle1, ...);
@@ -161,27 +184,90 @@ public class SandSimulation : MonoBehaviour {
             AsyncGPUReadback.Request(areaTexture, 0, data => {
 
                 if (sampe != null && areaTexture != null) {
+                    //SandComputeShader.SetTexture(convertTextureToParticlesHandle, "AreaTexture", areaTexture);
                     SpriteRenderer renderer = sampe.GetComponent<SpriteRenderer>();
                     if (renderer == null) {
                         Debug.print("No renderer for sample");
                     } else {
-                        Texture2D tex = ConvertRenderTextureToTexture2D(areaTexture);
-                        Sprite newSprite = Sprite.Create(tex, new Rect(0.0f, 0.0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        Texture2D tx = ConvertRenderTextureToTexture2D(areaTexture);
+                        Sprite newSprite = Sprite.Create(tx, new Rect(0.0f, 0.0f, tx.width, tx.height), new Vector2(0.5f, 0.5f));
                         renderer.sprite = newSprite;
                         
                         //renderer.material.mainTexture = areaTexture;
                         Debug.print("Set texture?");
+                        
+                        Graphics.CopyTexture(areaTexture, tx);
+                        SandComputeShader.SetTexture(convertTextureToParticlesHandle, "InputTexture", areaTexture);
+                        SandComputeShader.Dispatch(convertTextureToParticlesHandle, areaTexture.width / 8, areaTexture.height / 8, 1);
                     }
                 }
 
                 capturing = false;
                 isReadbackComplete = true;
+                //SandComputeShader.SetVector("PastePosition", new Vector2(0, 500));
+                //SandComputeShader.SetVector("AreaSize", new Vector2(areaTexture.width, areaTexture.height));
+                //SandComputeShader.SetTexture(convertTextureToParticlesHandle, "InputTexture", areaTexture);
+                //SandComputeShader.Dispatch(convertTextureToParticlesHandle, areaTexture.width / 8, areaTexture.height / 8, 1);
             });
 
             yield return new WaitUntil(() => isReadbackComplete);
         }
 
         StartCoroutine(DoReadbackCoroutine());
+    }
+    
+    public static RenderTexture ToRenderTexture(Texture2D texture)
+    {
+        // Create a RenderTexture with the same dimensions as the Texture2D
+        RenderTexture renderTexture = new RenderTexture(texture.width, texture.height, 0);
+        
+        // Enable random write access if needed (for compute shader usage)
+        renderTexture.enableRandomWrite = true;
+
+        // Activate the RenderTexture and perform the copy
+        RenderTexture.active = renderTexture;
+        Graphics.Blit(texture, renderTexture);
+
+        // Reset the active RenderTexture
+        RenderTexture.active = null;
+
+        return renderTexture;
+    }
+
+    void LoadCaptured() {
+        if (areaTexture != null && !capturing) {
+            //RenderTexture rt = ToRenderTexture(tex);
+            //rt.enableRandomWrite = true;
+            //rt.Create();
+            //Texture2D tx = ConvertRenderTextureToTexture2D(rt);
+            Texture2D myTexture = new Texture2D(150, 150, TextureFormat.RGB24, false);
+            for (int x = 0; x < myTexture.width; x++)
+            {
+                for (int y = 0; y < myTexture.height; y++)
+                {
+                    // Set the pixel to yellow
+                    myTexture.SetPixel(x, y, Color.yellow);
+                }
+            }
+            myTexture.Apply();
+            //https://stackoverflow.com/questions/72375421/reading-data-from-rwtexture2d-in-compute-shader-unity
+            RenderTexture myRenderTexture = ToRenderTexture(myTexture);
+            myRenderTexture.enableRandomWrite = true;
+            //myRenderTexture.format = RenderTextureFormat.ARGB32;
+            SandComputeShader.SetTexture(convertTextureToParticlesHandle, "InputTexture", myRenderTexture);
+            SandComputeShader.SetVector("PastePosition", new Vector2(0, 500));
+            SandComputeShader.SetVector("AreaSize", new Vector2(myRenderTexture.width, myRenderTexture.height));
+            SandComputeShader.Dispatch(convertTextureToParticlesHandle, myRenderTexture.width / 8, myRenderTexture.height / 8, 1);
+
+            //SandComputeShader.SetTexture(convertTextureToParticlesHandle, "InputTexture", areaTexture);
+            //SandComputeShader.SetVector("PastePosition", new Vector2(0, 500));
+            //SandComputeShader.SetVector("AreaSize", new Vector2(areaTexture.width, areaTexture.height));
+            //SandComputeShader.Dispatch(convertTextureToParticlesHandle, areaTexture.width / 8, areaTexture.height / 8, 1);
+            Debug.print("Load texture?");
+        }
+        else {
+            Debug.print("areaTexture == null || capturing");
+        }
     }
     
     private float actionCooldown = 0.1f; // Cooldown time in seconds.
@@ -205,6 +291,8 @@ public class SandSimulation : MonoBehaviour {
             }
         } else if (Input.GetKeyUp(KeyCode.C)) {
             DoCapture();
+        } else if (Input.GetKeyUp(KeyCode.L)) {
+            LoadCaptured();
         } else if (Input.GetKey(KeyCode.D) && Time.time > lastActionTime + actionCooldown) {
             lastActionTime = Time.time;
             particleBuffer.GetData(particleData);

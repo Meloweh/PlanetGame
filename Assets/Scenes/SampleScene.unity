@@ -623,7 +623,7 @@ Transform:
   m_GameObject: {fileID: 1874639328}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 100}
+  m_LocalPosition: {x: 634, y: -8, z: 100}
   m_LocalScale: {x: 200, y: 200, z: 200}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -802,6 +802,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SandComputeShader: {fileID: 7200000, guid: acc4cc76ebcf5a83bbaee36a0da4a575, type: 3}
   sampe: {fileID: 1874639328}
+  tex: {fileID: 2800000, guid: 1d0cc31957d2ed90789bb224ee91568b, type: 3}
   rawImageDisplay: {fileID: 779507415}
   canvas: {fileID: 14574121}
 --- !u!1660057539 &9223372036854775807
