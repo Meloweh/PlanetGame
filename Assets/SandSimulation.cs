@@ -196,9 +196,9 @@ public class SandSimulation : MonoBehaviour {
                         //renderer.material.mainTexture = areaTexture;
                         Debug.print("Set texture?");
                         
-                        Graphics.CopyTexture(areaTexture, tx);
-                        SandComputeShader.SetTexture(convertTextureToParticlesHandle, "InputTexture", areaTexture);
-                        SandComputeShader.Dispatch(convertTextureToParticlesHandle, areaTexture.width / 8, areaTexture.height / 8, 1);
+                        //Graphics.CopyTexture(areaTexture, tx);
+                        //SandComputeShader.SetTexture(convertTextureToParticlesHandle, "InputTexture", areaTexture);
+                        //SandComputeShader.Dispatch(convertTextureToParticlesHandle, areaTexture.width / 8, areaTexture.height / 8, 1);
                     }
                 }
 
