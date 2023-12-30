@@ -25,6 +25,8 @@ public class SandSimulation : MonoBehaviour {
 
     public RawImage rawImageDisplay;
     public Canvas canvas;
+
+    private uint currentFrame = 0;
     struct Particle {
         public Vector4 color;
         public float2 velocity;
@@ -35,6 +37,9 @@ public class SandSimulation : MonoBehaviour {
         public int3 neighbor;
         public uint pressure;
         public uint falling;
+        public float glowIntensity;
+        public uint lastUpdateFrame;
+        public uint availableSlideFrames;
     }
     
     struct Planet {
@@ -82,7 +87,7 @@ public class SandSimulation : MonoBehaviour {
 
         rngBuffer = new ComputeBuffer(rngCount, sizeof(uint));
 
-        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 64);//44
+        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 76);//44
         particleData = new Particle[simulationTexture.width * simulationTexture.height];
         for (int i = 0; i < particleData.Length; i++) {
             particleData[i].color = new Vector4(0, 0, 0, 1);
@@ -94,6 +99,9 @@ public class SandSimulation : MonoBehaviour {
             particleData[i].neighbor = new int3(-1,-1,-1);
             particleData[i].pressure = 0;
             particleData[i].falling = 0;
+            particleData[i].glowIntensity = 0f;
+            particleData[i].lastUpdateFrame = 0;
+            particleData[i].availableSlideFrames = 0;
         }
         particleBuffer.SetData(particleData);
 
@@ -277,9 +285,13 @@ public class SandSimulation : MonoBehaviour {
         float dt = Time.deltaTime;
         SandComputeShader.SetFloat("dt", dt);
         
-        SandComputeShader.Dispatch(transformKernelHandle, simulationTexture.width / 8, simulationTexture.height / 8, 1);
+        currentFrame++;
+        SandComputeShader.SetInt("_CurrentFrame", (int)currentFrame);
+        SandComputeShader.SetFloat("_DecayRate", 0.1f);
+        
+        SandComputeShader.Dispatch(transformKernelHandle, simulationTexture.width / 16, simulationTexture.height / 16, 1);
 
-        SandComputeShader.Dispatch(fallSandKernelHandle, simulationTexture.width / 8, simulationTexture.height / 8, 1);
+        SandComputeShader.Dispatch(fallSandKernelHandle, simulationTexture.width / 16, simulationTexture.height / 16, 1);
         //SandComputeShader.Dispatch(updateSandKernelHandle, simulationTexture.width / 8, simulationTexture.height / 8, 1); // Dispatch the update kernel after the fall kernel
 
         if (Input.GetKey(KeyCode.W)) {print("; ");

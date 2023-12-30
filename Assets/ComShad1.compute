@@ -23,6 +23,9 @@ struct Particle {
     int3 neighbor;
     uint pressure;
     uint falling;
+    float glowIntensity;
+    uint lastUpdateFrame;
+    uint availableSlideFrames;
 };
 
 RWStructuredBuffer<Particle> Particles;
@@ -37,6 +40,9 @@ uint2 AreaSize;
 float2 mousePos;
 uint _Width;
 uint _Height;
+
+uint _CurrentFrame;
+float _DecayRate;
 
 float2 gravityPoint = float2(200, 200);
 float gravityStrength = 2;
@@ -112,6 +118,9 @@ Particle nothing() {
     p.neighbor = int3(-1,-1,-1);
     p.pressure = 0;
     p.falling = 0;
+    p.glowIntensity = 0.0;
+    p.lastUpdateFrame = 0;
+    p.availableSlideFrames = 0;
     return p;
 }
 
@@ -126,6 +135,9 @@ Particle matter() {
     p.neighbor = int3(-1,-1,-1);
     p.pressure = 1;
     p.falling = 0;
+    p.glowIntensity = 1.0;
+    p.lastUpdateFrame = 0;
+    p.availableSlideFrames = 0;
     return p;
 }
 
@@ -219,7 +231,7 @@ void CSAddPlayer (uint3 id : SV_DispatchThreadID) {
 void CSAddSand (uint3 id : SV_DispatchThreadID) {
     int2 offset = id.xy - (int2)mousePos;
     uint index = id.y * _Width + id.x;
-    if (dot(offset, offset) <= 1000) {
+    if (dot(offset, offset) <= 30) {
         Particles[index].type = 1;
         Particles[index].color = float4(1, 0, 0, 1);
         float x = mousePos.x / 200;
@@ -242,6 +254,9 @@ Particle copy(const Particle old) {
     p.neighbor = old.neighbor;
     p.pressure = old.pressure;
     p.falling = old.falling;
+    p.glowIntensity = old.glowIntensity;
+    p.lastUpdateFrame = old.lastUpdateFrame;
+    p.availableSlideFrames = old.availableSlideFrames;
     return p;
 }
 /*Particle copy(Particle old) {
@@ -656,6 +671,7 @@ bool stuff(int2 from, int2 to, Particle current, int xoffset, int yoffset) {
         Particles[freeIndex].color = float4(0, 1, 1, 1);
         Particles[freeIndex].position = free1;
         Particles[freeIndex].velocity = int2(0, 0);
+        
         return true;
     }
     return false;
@@ -743,14 +759,21 @@ bool getFarNeighbors(uint index) {
     return false;
 }
 
-[numthreads(8, 8, 1)]
+[numthreads(16, 16, 1)]
 void CSFallSand(uint3 id : SV_DispatchThreadID)
 {
     uint index = id.y * _Width + id.x;
     const Particle current = copy(Particles[index]);
 
-    if (current.type == 1) { // Check if it's a sand particle
+    if (current.type == 1) {
+        Particles[index].glowIntensity = 1.0;
 
+        //Particles[index].mass += 1;
+        /*if (id.y > _Width / 2) {
+            //Particles[index].color.r += 0.1; // Increase redness
+            Particles[index].glowIntensity = 1.0; // Set glow intensity
+        }*/
+        
         for (uint i = 0; i < _planetCount; i++) {
             if (planets[i].active == 0)
                 break;
@@ -762,26 +785,41 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             float mass1 = current.mass;
             float mass2 = planets[i].mass;
             //float G = minG * planets[i].mass;
-            const float G = 7;
-            float forceMagnitude = G * mass1 * mass2 / (r * r); // Assuming both masses are 1
+            const float G = 7 * 3;
+            float forceMagnitude = G * mass1 * mass2 / (r * r);
             float2 forceDirection = normalize(direction);
 
             Particles[index].velocity += forceDirection * forceMagnitude * dt;
         }
 
-        float maxSpeed = 10.0; // Adjust as needed
+        float maxSpeed = 10.0;
         if (length(Particles[index].velocity) > maxSpeed) {
             Particles[index].velocity = normalize(Particles[index].velocity) * maxSpeed;
+            //Particles[index].color += float4(0,0,0.1,0);
         }
 
         Particle first = copy(Particles[index]);
         first.velocity = Particles[index].velocity;
         first.position = id.xy + first.velocity * dt;
-        first.color = float4(0, 1, 0, 1);
+        first.color = float4(0.1, 0.2, 0, 1);
 
         for (uint count = 0; count < 4; count++) {
             // Calculate the new position
+            //int2 newPosition = first.position + first.velocity;
+            //uint newPositionIndex = newPosition.y * _Width + newPosition.x;
+
+            //float w = _Width;
+            //float2 newPosition = first.position + first.velocity;
+            //float f = newPosition.y * w + newPosition.x;
+            //float f2 = floor(f);
+            ////uint newPositionIndex = (uint)(floor(newPosition.y * (float)_Width + newPosition.x));
+            //uint newPositionIndex = int(f2);
+
+            //int2 newPosition = first.position + first.velocity;
+            //uint newPositionIndex = (first.position.y + first.velocity.y) * _Width + (first.position.x + first.velocity.x);
+
             int2 newPosition = first.position + first.velocity;
+            float2 newPositionFloat = first.position + first.velocity;
             uint newPositionIndex = newPosition.y * _Width + newPosition.x;
             
             Particle other = copy(Particles[newPositionIndex]);
@@ -790,7 +828,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             
             if (other.type == 0) {
                 Particles[newPositionIndex] = first;
-                Particles[newPositionIndex].position = newPosition;
+                Particles[newPositionIndex].position = newPositionFloat;
                 break;
             }
             
@@ -810,6 +848,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                 Particles[offsetIndex].type = 2;
                 Particles[offsetIndex].position = offsetPos;
                 Particles[offsetIndex].neighbor.x = 2;
+                Particles[offsetIndex].availableSlideFrames = 100;
                 planets[other.stickyToId].mass++;
                 return;
             }
@@ -829,16 +868,26 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             index = newPositionIndex;
         }
     } else if (current.type == 2) {
-        updatePressure(index);
+        //updatePressure(index);
         const Particle newCurrent = copy(Particles[index]);
         const Planet planet = planets[newCurrent.stickyToId];
         const int2 from = id.xy;
         const int2 to = planet.pos;
 
-        if (!hasStickyNeighbor(index)) {
+        if (!hasStickyNeighbor(index)){
             Particle newp = free(current);
             Particles[index] = newp;
-        } else if (newCurrent.falling == 1) {
+        } else if (Particles[index].lastUpdateFrame < _CurrentFrame && Particles[index].availableSlideFrames > 0) {
+            int l = 2;
+            for (int i=-l; i<=l; i++) {
+                for (int j=-l; j<=l; j++) {
+                    bool done = stuff(from, to,  newCurrent, i, j);
+                    if (done) return;
+                }
+            }
+            Particles[index].availableSlideFrames--;
+        }
+        /*} else if (newCurrent.falling == 1) {
             int l = 2;
             for (int i=-l; i<=l; i++) {
                 for (int j=-l; j<=l; j++) {
@@ -855,7 +904,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                     if (done) return;
                 }
             }
-        }
+        }*/
 
         /*
         if (!hasStickyNeighbor(index)) {
@@ -870,12 +919,46 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                 }
             }
         }*/
+    } else if (Particles[index].type == 0) {
+        if (Particles[index].lastUpdateFrame < _CurrentFrame) {
+            Particles[index].color *= float4(0.9, 0.9, 0.9, 1);
+            Particles[index].glowIntensity *= 0.9;
+        }
+        
     }
+    Particles[index].lastUpdateFrame = _CurrentFrame;
 }
 
-[numthreads(8, 8, 1)]
+[numthreads(16, 16, 1)]
 void CSTransformToTexture (uint3 id : SV_DispatchThreadID) {
     uint index = id.y * _Width + id.x;
     Particle current = Particles[index];
-    ResultTexture[id.xy] = current.color;
+
+    float4 defaultSpeedColor = float4(0.2, 0.1, 0, 0.3);
+    float factor = abs(current.velocity) * 0.7;
+    float4 glowColor = defaultSpeedColor * factor; // yellow
+    float glowRadius = 2;
+    float4 accumulatedGlow = float4(0, 0, 0, 0);
+    if (current.type >= 2) {
+        //glowColor = float4(0,0,0,0);
+        //glowRadius = 0;
+    } else {
+        for (int dy = -glowRadius; dy <= glowRadius; dy++) {
+            for (int dx = -glowRadius; dx <= glowRadius; dx++) {
+                int2 checkPos = int2(id.x + dx, id.y + dy);
+                if (checkPos.x >= 0 && checkPos.x < _Width && checkPos.y >= 0 && checkPos.y < _Width) {
+                    uint checkIndex = checkPos.y * _Width + checkPos.x;
+                    Particle checkParticle = Particles[checkIndex];
+                    float distance = length(float2(dx, dy));
+                    if (distance <= glowRadius) {
+                        float glowFactor = (1.0 - distance / glowRadius) * checkParticle.glowIntensity;
+                        accumulatedGlow += glowColor * glowFactor;
+                    }
+                }
+            }
+        }
+    }
+
+    ResultTexture[id.xy] = current.color + accumulatedGlow;
 }
+

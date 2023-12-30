@@ -182,7 +182,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!223 &14574121
 Canvas:
   m_ObjectHideFlags: 0
@@ -192,7 +192,7 @@ Canvas:
   m_GameObject: {fileID: 14574118}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 2
+  m_RenderMode: 1
   m_Camera: {fileID: 519420031}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
@@ -215,7 +215,7 @@ RectTransform:
   m_GameObject: {fileID: 14574118}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 779507414}
@@ -224,8 +224,8 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1664, y: 864}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0, y: 0}
 --- !u!114 &14574123
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -369,7 +369,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -105.44}
+  m_LocalPosition: {x: 0, y: 0, z: -107.35}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -803,6 +803,8 @@ MonoBehaviour:
   SandComputeShader: {fileID: 7200000, guid: acc4cc76ebcf5a83bbaee36a0da4a575, type: 3}
   sampe: {fileID: 1874639328}
   tex: {fileID: 2800000, guid: 1d0cc31957d2ed90789bb224ee91568b, type: 3}
+  myTexture: {fileID: 0}
+  renderTexture: {fileID: 0}
   rawImageDisplay: {fileID: 779507415}
   canvas: {fileID: 14574121}
 --- !u!1660057539 &9223372036854775807
