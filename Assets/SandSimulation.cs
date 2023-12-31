@@ -40,6 +40,7 @@ public class SandSimulation : MonoBehaviour {
         public float glowIntensity;
         public uint lastUpdateFrame;
         public uint availableSlideFrames;
+        public uint redness;
     }
     
     struct Planet {
@@ -87,7 +88,7 @@ public class SandSimulation : MonoBehaviour {
 
         rngBuffer = new ComputeBuffer(rngCount, sizeof(uint));
 
-        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 76);//44
+        particleBuffer = new ComputeBuffer(simulationTexture.width * simulationTexture.height, 80);//44
         particleData = new Particle[simulationTexture.width * simulationTexture.height];
         for (int i = 0; i < particleData.Length; i++) {
             particleData[i].color = new Vector4(0, 0, 0, 1);
@@ -102,6 +103,8 @@ public class SandSimulation : MonoBehaviour {
             particleData[i].glowIntensity = 0f;
             particleData[i].lastUpdateFrame = 0;
             particleData[i].availableSlideFrames = 0;
+            particleData[i].redness = 0;
+
         }
         particleBuffer.SetData(particleData);
 

@@ -26,6 +26,7 @@ struct Particle {
     float glowIntensity;
     uint lastUpdateFrame;
     uint availableSlideFrames;
+    uint redness;
 };
 
 RWStructuredBuffer<Particle> Particles;
@@ -121,6 +122,7 @@ Particle nothing() {
     p.glowIntensity = 0.0;
     p.lastUpdateFrame = 0;
     p.availableSlideFrames = 0;
+    p.redness = 0;
     return p;
 }
 
@@ -138,6 +140,7 @@ Particle matter() {
     p.glowIntensity = 1.0;
     p.lastUpdateFrame = 0;
     p.availableSlideFrames = 0;
+    p.redness = 0;
     return p;
 }
 
@@ -257,6 +260,7 @@ Particle copy(const Particle old) {
     p.glowIntensity = old.glowIntensity;
     p.lastUpdateFrame = old.lastUpdateFrame;
     p.availableSlideFrames = old.availableSlideFrames;
+    p.redness = old.redness;
     return p;
 }
 /*Particle copy(Particle old) {
@@ -849,6 +853,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                 Particles[offsetIndex].position = offsetPos;
                 Particles[offsetIndex].neighbor.x = 2;
                 Particles[offsetIndex].availableSlideFrames = 100;
+                Particles[offsetIndex].redness+=100;
                 planets[other.stickyToId].mass++;
                 return;
             }
@@ -860,6 +865,9 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             float impulse = 100 * dt * 2.0 * other.mass / (first.mass + other.mass) * dot(relVelocity, normal);
             first.velocity -= impulse * normal;
             other.velocity += impulse * normal;
+
+            first.redness+=100;
+            other.redness+=100;
             
             first.color = float4(1, 1, 0, 1);
             
@@ -926,6 +934,10 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
         }
         
     }
+
+    if (Particles[index].lastUpdateFrame < _CurrentFrame) {
+        if (Particles[index].redness > 0) Particles[index].redness--;
+    }
     Particles[index].lastUpdateFrame = _CurrentFrame;
 }
 
@@ -934,12 +946,12 @@ void CSTransformToTexture (uint3 id : SV_DispatchThreadID) {
     uint index = id.y * _Width + id.x;
     Particle current = Particles[index];
 
-    float4 defaultSpeedColor = float4(0.2, 0.1, 0, 0.3);
+    float4 defaultSpeedColor = float4(0.2 + 0.005 * current.redness, 0.1, 0, 0.3);
     float factor = abs(current.velocity) * 0.7;
     float4 glowColor = defaultSpeedColor * factor; // yellow
     float glowRadius = max(2, abs(current.velocity) * 0.7);
     float4 accumulatedGlow = float4(0, 0, 0, 0);
-    if (current.type >= 2) {
+    if (current.type >= 2 || current.redness > 0) {
         //glowColor = float4(0,0,0,0);
         //glowRadius = 0;
     } else {
