@@ -937,7 +937,7 @@ void CSTransformToTexture (uint3 id : SV_DispatchThreadID) {
     float4 defaultSpeedColor = float4(0.2, 0.1, 0, 0.3);
     float factor = abs(current.velocity) * 0.7;
     float4 glowColor = defaultSpeedColor * factor; // yellow
-    float glowRadius = 2;
+    float glowRadius = max(2, abs(current.velocity) * 0.7);
     float4 accumulatedGlow = float4(0, 0, 0, 0);
     if (current.type >= 2) {
         //glowColor = float4(0,0,0,0);
