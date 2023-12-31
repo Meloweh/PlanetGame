@@ -133,7 +133,7 @@ Particle matter() {
     p.mass = 1;
     p.position = float2(-1,-1);
     p.neighbor = int3(-1,-1,-1);
-    p.pressure = 1;
+    p.pressure = 0;
     p.falling = 0;
     p.glowIntensity = 1.0;
     p.lastUpdateFrame = 0;
@@ -152,7 +152,7 @@ void generateSurface(uint2 id, Planet planet, int2 pos) {
         p.color = float4(1, 0, 0, 1);
         p.position = id.xy;
         p.mass = 1;
-        p.pressure = 1;
+        p.pressure = 0;
         Particles[index] = p;
     }
 }
@@ -849,6 +849,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                 Particles[offsetIndex].position = offsetPos;
                 Particles[offsetIndex].neighbor.x = 2;
                 Particles[offsetIndex].availableSlideFrames = 100;
+                Particles[offsetIndex].pressure += 100;
                 planets[other.stickyToId].mass++;
                 return;
             }
@@ -860,7 +861,10 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             float impulse = 100 * dt * 2.0 * other.mass / (first.mass + other.mass) * dot(relVelocity, normal);
             first.velocity -= impulse * normal;
             other.velocity += impulse * normal;
-            
+
+            first.pressure += 100;
+            other.pressure += 100;
+
             first.color = float4(1, 1, 0, 1);
             
             Particles[newPositionIndex] = copy(first);
@@ -926,6 +930,9 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
         }
         
     }
+    if (Particles[index].lastUpdateFrame < _CurrentFrame){
+        if (Particles[index].pressure > 0) Particles[index].pressure--;
+    }
     Particles[index].lastUpdateFrame = _CurrentFrame;
 }
 
@@ -934,10 +941,12 @@ void CSTransformToTexture (uint3 id : SV_DispatchThreadID) {
     uint index = id.y * _Width + id.x;
     Particle current = Particles[index];
 
-    float4 defaultSpeedColor = float4(0.2, 0.1, 0, 0.3);
+    float g = 0.1;
+    if (current.pressure > 0) g = 0;
+    float4 defaultSpeedColor = float4(0.2, 0.1, 0, 0.3); // leak with g
     float factor = abs(current.velocity) * 0.7;
     float4 glowColor = defaultSpeedColor * factor; // yellow
-    float glowRadius = max(2, abs(current.velocity) * 0.7);
+    float glowRadius = max(2, abs(current.velocity) * 1.4);
     float4 accumulatedGlow = float4(0, 0, 0, 0);
     if (current.type >= 2) {
         //glowColor = float4(0,0,0,0);
