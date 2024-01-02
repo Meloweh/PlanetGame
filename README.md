@@ -47,8 +47,12 @@ https://github.com/Meloweh/PlanetGame/assets/49780209/c8b0752b-4a63-40e4-8b98-37
 ### Meilensteine
 - Partikelkollisionen
 ### Ansatz
+- Formel für elastischen Stoß einsetzen und anpassen bis es optisch ansprechend wirkt
+![6](https://github.com/Meloweh/PlanetGame/assets/49780209/96b2fa57-b10f-4930-806b-c847feaf9c3a)
 ### Ergebnis
+https://github.com/Meloweh/PlanetGame/assets/49780209/d1b0d073-9772-4fb3-920b-994205b1c96d
 ### Herausforderungen
+Ich habe mich dazu entschieden den Kollisionstest aus Zeitgründen in einer Schleife innerhalb des Kernels zu testen. Es geht sicherlich besser, aber mir fehlt die Zeit genauer darauf einzugehen.
 
 ## V4
 ### Meilensteine
