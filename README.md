@@ -56,9 +56,20 @@ Ich habe mich dazu entschieden den Kollisionstest aus Zeitgründen in einer Schl
 
 ## V4
 ### Meilensteine
+- Planeten spawnen
+- Gravitation aller Planeten beachten
+- Partikel auf Planet kleben lassen
 ### Ansatz
+- Spawnkernel einführen
+![7](https://github.com/Meloweh/PlanetGame/assets/49780209/5e11d62b-1c5b-4db4-b38b-cccf3fb31d3f)
+- Gravitation aller Planeten beachten
+![8](https://github.com/Meloweh/PlanetGame/assets/49780209/8153c2a0-c6d8-4f7f-8668-bb445e62873a)
+- Partikel auf Planet kleben lassen
+![9](https://github.com/Meloweh/PlanetGame/assets/49780209/6dc8cf80-407b-4873-943e-3e36cbd987e4)
 ### Ergebnis
+https://github.com/Meloweh/PlanetGame/assets/49780209/39da92d5-9211-4f77-a17c-143b9954ee31
 ### Herausforderungen
+Partikel verschwanden mit naiven Ansätzen des Kontakttests durch Überlappung bzw. Besetzung derselben Position. Mit dem Bresenham Schnitt konnte ich das Problem umgehen.
 
 ## V5
 ### Meilensteine
