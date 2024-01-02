@@ -151,6 +151,8 @@ Memory Leak machte die Pixel "glitchy" und crashte meinen Computer. Vermutlich d
 - Flamme durch relative Arealbeleuchtung um Partikel
 ### Ansatz
 In einer Schleife, "leere" Pixel in Abhängigkeit von der Distanz zum fokussierten Pixel, von Geschwindigkeit und Masse unterschiedlich blass/durchsichtig leuchten lassen.
+![image](https://github.com/Meloweh/PlanetGame/assets/49780209/14f8353e-af0c-4530-8f75-a86a0e781426)
+
 ### Ergebnis
 - Hard Lock Memory Leak behoben
 
@@ -166,9 +168,21 @@ Die Skalierung des Glow-Effekts in Abhängigkeit von der Masse des Pixels führt
 - Auftrag: “Eye Candy” umsetzen:
   - Part 2: Einschlag simulieren
 ### Ansatz
+- Radius um Pixel in Abhängigkeit von Masse und Velocity definieren und Blur Faktor Logik aus v7.2 anwenden. Dann Velocity aus relativer Position herleiten:
+![image](https://github.com/Meloweh/PlanetGame/assets/49780209/80d7d283-8b48-4190-8155-fcfe4011abb9)
+
+
 ### Ergebnis
 https://github.com/Meloweh/PlanetGame/assets/49780209/65f4a276-6d45-4f8e-a9c2-f9ab31bf1825
 
 https://github.com/Meloweh/PlanetGame/assets/49780209/3bbffa6f-7b0a-41f9-9e19-12de01296b6d
 
 ### Herausforderungen
+- Dass der Ansatz funktioniert war nicht leicht zu erkennen. Erst ist Unity eingefroren, allerdings nicht gecrasht. Dann kam ich darauf, dass das nicht wegen einem Leak geschieht, sondern wegen einem hohen Rechenaufwand. Die Partikel haben miteinander in einer Kettenreaktion wieder und wieder interagiert, daher habe ich alle aus dem Planeten freigesetzten Partikel mit "Particles[checkIndex].stickyToId = -2;" anstelle von "Particles[checkIndex].stickyToId = -1;" initialisiert und die Bedingung an die Kollision gestellt, dass stickyToId nicht -2 sein darf. Der Modulo  in der Velocityrechnung verhindert zusätzlich eine Kettenreaktion, da die Bedingung ist "if (abs(length(first.velocity)) > maxSpeed - 3 && first.stickyToId > -2)" wobei maxSpeed == 10.
+- Ein zweites Problem war dass die Einschläge wie bei v6 nur einseitig zu Wirken schien. das lag daran, dass ich das "abs" in der obigen if-condition vergessen hatte und erst später den Planeten auch von anderen Stellen außer im letzten Quadranten getestet habe.
+
+Hier das Endresultat:
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/95459c79-1a51-4cc9-a12b-4d21567684d1
+
+
