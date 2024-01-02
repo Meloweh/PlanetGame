@@ -126,12 +126,45 @@ https://github.com/Meloweh/PlanetGame/assets/49780209/b56536b8-5a85-446c-8dff-23
 
 ## V7
 ### Meilensteine
+- Auftrag: “Eye Candy” umsetzen:
+  - Part 1: Partikel leuchten lassen
 ### Ansatz
+Pixel im Radius von 1 "leere" Pixel anfärben und "fade" Animation einführen, um Schleiereffekt zu erzeugen.
 ### Ergebnis
+![image51](https://github.com/Meloweh/PlanetGame/assets/49780209/f0d29d55-364f-4ec0-8c7a-e860e21608ae)
+
+- Umgesetzt:
+  - Feuer-Effekt eingeführt und wird heller/dunkler, je nach Geschwindigkeit
+  - Berg und Kraterbildung durch Zähleransatz gelöst:
+  - Ein Partikel auf dem Planeten angekommen darf sich 100 Steps bewegen. Dieser Wert kann z.B. bei Events, wie Einschläge einfach resettet werden, um die Animation wiederzubeleben.
+  - Position update fix: Attribute wird jetzt mit float2 anstelle von int2 geupdated
+  - Gravitation wurde erhöht, damit keine kantige Flugbahn entsteht
+  - Auflösung auf HD reduziert
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/2167a6f1-7420-4698-8a6b-f051947e0c0c
+
 ### Herausforderungen
+Memory Leak machte die Pixel "glitchy" und crashte meinen Computer. Vermutlich durch eine Race-Condition, wenn ich auf gleiche Attribute von Pixel in einem parallelisiertem Umfeld in einer Schleife zugreife.
+
+## V7.2
+### Meilensteine
+- Flamme durch relative Arealbeleuchtung um Partikel
+### Ansatz
+In einer Schleife, "leere" Pixel in Abhängigkeit von der Distanz zum fokussierten Pixel, von Geschwindigkeit und Masse unterschiedlich blass/durchsichtig leuchten lassen.
+### Ergebnis
+- Hard Lock Memory Leak behoben
+
+![image](https://github.com/Meloweh/PlanetGame/assets/49780209/1cbee663-efbf-48a3-8820-c49f0e1b796b)
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/07c8f8eb-f998-40ca-bedd-f90bacd5e7a1
+
+### Herausforderungen
+Die Skalierung des Glow-Effekts in Abhängigkeit von der Masse des Pixels führte ebenfalls zu einem Memory Leak. Diesen konnte ich zwar durch das Variieren vom Aufbau meiner Operationen beheben, habe dadurch aber nicht nachvollziehen können warum das Problem an erster Linie entstanden ist.
 
 ## V8
 ### Meilensteine
+- Auftrag: “Eye Candy” umsetzen:
+  - Part 2: Einschlag simulieren
 ### Ansatz
 ### Ergebnis
 ### Herausforderungen
