@@ -237,7 +237,7 @@ void CSAddSand (uint3 id : SV_DispatchThreadID) {
         float x = mousePos.x / 200;
         float y = mousePos.y / 200;
         if (mousePos.x < 200) x = -1;
-        Particles[index].velocity = float2(1, 0);
+        Particles[index].velocity = float2(-1, 0);
         Particles[index].position = float2(0, 0);
         Particles[index].mass = 1;
     }
@@ -853,23 +853,25 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                 Particles[offsetIndex].pressure += 100;
                 planets[other.stickyToId].mass++;
 
-                if (length(first.velocity) > maxSpeed - 3 && first.stickyToId > -2) {
-                    float r = first.mass * first.velocity / 2;
+                if (abs(length(first.velocity)) > maxSpeed - 3 && first.stickyToId > -2) {
+                    
+                    float r = abs(first.mass * first.velocity / 2);
                     for (int dy = -r; dy <= r; dy++) {
                         for (int dx = -r; dx <= r; dx++) {
                             int2 checkPos = int2(first.position.x + dx, first.position.y + dy);
                             if (checkPos.x >= 0 && checkPos.x < _Width && checkPos.y >= 0 && checkPos.y < _Width) {
                                 uint checkIndex = checkPos.y * _Width + checkPos.x;
                                 Particle checkParticle = Particles[checkIndex];
-                                float distance = length(float2(dx, dy));
-                                if (distance <= r) {
+                                float dis = length(float2(dx, dy));
+                                //if (distance <= r) {
+                                //Particles[offsetIndex].color = float4(1,0,1,1);
+                                if (distance(checkPos, first.position) <= r) {
                                     Particles[checkIndex].color = float4(1,1,1,1);
-                                    const float f = (1.0 - distance / r) * checkParticle.glowIntensity;
+                                    const float f = (1.0 - dis / r) * checkParticle.glowIntensity;
                                     Particles[checkIndex].type = 1;
                                     Particles[checkIndex].stickyToId = -2;
-                                    //Particles[checkIndex].color = float4(1, 0, 0, 1);
                                     Particles[checkIndex].pressure += 200;
-                                    Particles[checkIndex].velocity = float2(((first.position.x + dx) / dx) % 6, ((first.position.y + dy) / dx) % 6);//float2((first.position.x + dx) * f, (first.position.y + dy) * f);
+                                    Particles[checkIndex].velocity = float2((((first.position.x + dx) / dx) * abs(f)) % 6, (((first.position.y + dy) / dx) * abs(f)) % 6);//float2((first.position.x + dx) * f, (first.position.y + dy) * f);
 
                                 }
                             }
