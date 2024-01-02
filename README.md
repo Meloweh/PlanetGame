@@ -97,9 +97,32 @@ https://github.com/Meloweh/PlanetGame/assets/49780209/94e6ab43-0f2d-4ccb-bc56-4c
 
 ## V6
 ### Meilensteine
+- Berge/Täler ermöglichen
+- Höhenlimit für Berge
 ### Ansatz
-### Ergebnis
+- “Druck”-Kette einführen
+- Starter-Viskosität erlauben
+![image](https://github.com/Meloweh/PlanetGame/assets/49780209/2225e651-6852-4640-8995-bae7d4adf0f5)
 ### Herausforderungen
+- Problem:
+“Druck” wird nicht gleichmäßig um den Planeten herum berechnet
+- Mögliche Lösungsideen:
+“Tunnelbildung”, Kraterkanten, etc. durch Bresenham+Negativdruck verhindern
+- Hinweis: Der Ansatz wurde aus Zeittechnischen Gründen nicht mehr fortgesetzt.
+### Dokumentierte Ansätze
+https://github.com/Meloweh/PlanetGame/assets/49780209/c5947266-b2ac-4d44-8108-036900b6db91
+
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/b02ceba6-2268-4d73-8a1d-822b4b2f1b38
+
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/85ca485b-87bf-4b6a-9847-2064be194bdd
+
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/84dd38ba-1c58-4bac-a401-c7529faf0e59
+
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/b56536b8-5a85-446c-8dff-238098cf956a
 
 ## V7
 ### Meilensteine
