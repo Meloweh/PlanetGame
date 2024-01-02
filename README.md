@@ -159,7 +159,7 @@ In einer Schleife, "leere" Pixel in Abhängigkeit von der Distanz zum fokussiert
 https://github.com/Meloweh/PlanetGame/assets/49780209/07c8f8eb-f998-40ca-bedd-f90bacd5e7a1
 
 ### Herausforderungen
-Die Skalierung des Glow-Effekts in Abhängigkeit von der Masse des Pixels führte ebenfalls zu einem Memory Leak. Diesen konnte ich zwar durch das Variieren vom Aufbau meiner Operationen beheben, habe dadurch aber nicht nachvollziehen können warum das Problem an erster Linie entstanden ist.
+Die Skalierung des Glow-Effekts in Abhängigkeit von der Masse des Pixels führte ebenfalls zu einem Memory Leak. Dieses konnte ich zwar durch das Variieren vom Aufbau meiner Operationen beheben, habe dadurch aber nicht nachvollziehen können warum das Problem an erster Linie entstanden ist.
 
 ## V8
 ### Meilensteine
@@ -167,4 +167,8 @@ Die Skalierung des Glow-Effekts in Abhängigkeit von der Masse des Pixels führt
   - Part 2: Einschlag simulieren
 ### Ansatz
 ### Ergebnis
+https://github.com/Meloweh/PlanetGame/assets/49780209/65f4a276-6d45-4f8e-a9c2-f9ab31bf1825
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/3bbffa6f-7b0a-41f9-9e19-12de01296b6d
+
 ### Herausforderungen
