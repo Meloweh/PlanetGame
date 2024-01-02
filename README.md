@@ -73,9 +73,27 @@ Partikel verschwanden mit naiven Ansätzen des Kontakttests durch Überlappung b
 
 ## V5
 ### Meilensteine
+- Partikel um den Planeten “dickflüssig” machen
 ### Ansatz
+- Für alle Partikel pro Planet, ist ein Nachbarpixel frei und liegt dieser näher zum Planetzentrum, erlaube einen "Sprung" um n (belassen auf n=2) Pixel.
 ### Ergebnis
+https://github.com/Meloweh/PlanetGame/assets/49780209/95d43266-9a70-4725-9b25-74e05e37348c
 ### Herausforderungen
+- Diverse Ansätze bin ich zu kompliziert angegangen. Der oben genannte Ansatz scheint trivial, ist allerdings ein "brute-force" Ansatz.
+- Hier ein paar Bugs und Fehlschläge:
+https://github.com/Meloweh/PlanetGame/assets/49780209/edb166b7-82c7-4270-a2f5-054dc08b07ea
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/55329615-a9df-478b-b7f1-4aa524760f1e
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/43cf5c34-9daa-45a7-b30c-06be6baa091b
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/fff5d1a8-5439-4381-bccd-6e3ec9ddc448
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/5bae7be1-15b5-4351-ba30-6264b683ffe2
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/9da37169-894b-4ecb-b575-bb85eef11d5c
+
+https://github.com/Meloweh/PlanetGame/assets/49780209/94e6ab43-0f2d-4ccb-bc56-4c02eb0a9a3c
 
 ## V6
 ### Meilensteine
