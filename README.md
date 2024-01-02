@@ -1,6 +1,6 @@
 # Planetenspiel in einer Partikelsimulation
 
-## Projektbeschreibung
+## Projektbeschreibung und Ziele
 - 2D Space Pixel Planetenspiel
 - Welt aus Simulierten Pixel wie in Noita
 - Physik wie planetare Gravitation
