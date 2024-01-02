@@ -144,7 +144,7 @@ Particle matter() {
 void generateSurface(uint2 id, Planet planet, int2 pos) {
     int2 offset = id.xy - pos;
     uint index = id.y * _Width + id.x;
-    
+
     if (dot(offset, offset) <= (int) planet.mass) {
         Particle p = matter();
         p.stickyToId = planet.id;
@@ -211,7 +211,7 @@ void CSAddPlanet(uint2 id : SV_DispatchThreadID) {
     planets[candidate].active = 1;
     planets[candidate].pos = mousePos;
     planets[candidate].id = candidate;
-    
+
     generateSurface(id, planets[candidate], mousePos);
 }
 
@@ -465,7 +465,7 @@ Particle findStickyNeightbour(uint index) {
     p = Particles[index + _Width];
     if (p.stickyToId != -1)
         return p;
-    
+
     return Particles[index];
 }
 
@@ -483,7 +483,7 @@ bool hasStickyNeighbor(uint index) {
     p = Particles[index + _Width];
     if (p.stickyToId != -1)
         return true;
-    
+
     return false;
 }
 
@@ -492,7 +492,7 @@ uint2 freeSpaceTowards(uint x, uint y, int2 target) {
     const uint index = y * _Width + x;
     //const Particle current = Particles[index];
     const float currDist = distance(target, uint2(x,y));
-    
+
     Particle p;
     p = Particles[index - 1];
     if (p.stickyToId == -1 && distance(target, p.position) <= currDist)
@@ -508,7 +508,7 @@ uint2 freeSpaceTowards(uint x, uint y, int2 target) {
         return uint2(x, y + 1);
 
     //TODO: z.B. x=0 - 1 fälle nicht abgedeckt
-    
+
     return index;
 }
 
@@ -534,11 +534,11 @@ int4 getCloserStuff(const int2 from) {//int4x4 getCloserStuff(const int2 from) {
     for (int i=l; i>=-l; i--) {
         for (int j=l; j>=-l; j--) {
             //const int currIndex = (i+l) * (2l + 1) + (j+l);
-            
+
             const int index = closerStuff(from, i, j);
             if (index > -1) {
                 //result[i+l][j+l] = index;
-                
+
                 if (result[0] == -1){
                     //Particles[index].color = float4(0,0,1,1);
                     //Particles[index].color += float4(0, 0, 1, 1);
@@ -607,7 +607,7 @@ void updatePressure(const uint index) {
     const int4 neighborIndices = getCloserStuff(current.position);
     //if (neighborIndices.x == -1 && neighborIndices.y == -1 && neighborIndices.z == -1) current.color = float4(1, 1, 1, 1);
 
-    
+
     for (int i = 0; i < 4; i++) {
         const int flatIndex = i;
         int row = flatIndex / 4;
@@ -661,17 +661,17 @@ bool stuff(int2 from, int2 to, Particle current, int xoffset, int yoffset) {
     const uint freeIndex = free1.y * _Width + free1.x;
     float oldDist = distance(from, to);
     float newDist = distance(free1, to);
-    if (Particles[freeIndex].type == 0 && newDist < oldDist) {  
+    if (Particles[freeIndex].type == 0 && newDist < oldDist) {
         Particles[index].color = float4(0, 0, 0, 1);
         Particles[index].type = 0;
         Particles[index].velocity = int2(0, 0);
         Particles[index].stickyToId = -1;
-            
+
         Particles[freeIndex] = current;
         Particles[freeIndex].color = float4(0, 1, 1, 1);
         Particles[freeIndex].position = free1;
         Particles[freeIndex].velocity = int2(0, 0);
-        
+
         return true;
     }
     return false;
@@ -680,7 +680,7 @@ bool stuff(int2 from, int2 to, Particle current, int xoffset, int yoffset) {
 bool atHighLimit(int2 from, int2 to, uint mass) {
     const uint len = length(to - from);
     const uint assumedArea = 3.14159 * len * len;
-    
+
     return assumedArea > mass + 10000;
 }
 
@@ -755,7 +755,7 @@ bool getFarNeighbors(uint index) {
     p = Particles[index + _Width];
     if (p.stickyToId != -1)
         return true;
-    
+
     return false;
 }
 
@@ -773,13 +773,13 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             //Particles[index].color.r += 0.1; // Increase redness
             Particles[index].glowIntensity = 1.0; // Set glow intensity
         }*/
-        
+
         for (uint i = 0; i < _planetCount; i++) {
             if (planets[i].active == 0)
                 break;
-            
+
             float2 gravityPoint = planets[i].pos;
-        
+
             float2 direction = gravityPoint - id.xy;
             float r = length(direction);
             float mass1 = current.mass;
@@ -821,25 +821,26 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             int2 newPosition = first.position + first.velocity;
             float2 newPositionFloat = first.position + first.velocity;
             uint newPositionIndex = newPosition.y * _Width + newPosition.x;
-            
+
             Particle other = copy(Particles[newPositionIndex]);
             Particles[index].type = 0;
             Particles[index].color = float4(0, 0, 0, 1);
-            
+
             if (other.type == 0) {
                 Particles[newPositionIndex] = first;
                 Particles[newPositionIndex].position = newPositionFloat;
                 break;
             }
-            
+
             Particle neighbour = findStickyNeightbour(newPositionIndex);
-            
+
             if (other.stickyToId != -1 || neighbour.stickyToId != -1)
             {
+                //if (length(first.velocity) < maxSpeed - 1 && first.mass == 1) {
                 float2 vn = normalize(first.velocity);
                 //float2 offsetPos = newPosition;
                 int2 offsetPos = bresenham(newPosition, first.position);
-                
+
                 //for (; Particles[offsetPos.y * _Width + offsetPos.x].stickyToId != -1; offsetPos -= vn);
                 uint offsetIndex = offsetPos.y * _Width + offsetPos.x;
                 Particles[offsetIndex] = first;
@@ -851,7 +852,33 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
                 Particles[offsetIndex].availableSlideFrames = 100;
                 Particles[offsetIndex].pressure += 100;
                 planets[other.stickyToId].mass++;
+
+                if (length(first.velocity) > maxSpeed - 3 && first.stickyToId > -2) {
+                    float r = first.mass * first.velocity / 2;
+                    for (int dy = -r; dy <= r; dy++) {
+                        for (int dx = -r; dx <= r; dx++) {
+                            int2 checkPos = int2(first.position.x + dx, first.position.y + dy);
+                            if (checkPos.x >= 0 && checkPos.x < _Width && checkPos.y >= 0 && checkPos.y < _Width) {
+                                uint checkIndex = checkPos.y * _Width + checkPos.x;
+                                Particle checkParticle = Particles[checkIndex];
+                                float distance = length(float2(dx, dy));
+                                if (distance <= r) {
+                                    Particles[checkIndex].color = float4(1,1,1,1);
+                                    const float f = (1.0 - distance / r) * checkParticle.glowIntensity;
+                                    Particles[checkIndex].type = 1;
+                                    Particles[checkIndex].stickyToId = -2;
+                                    //Particles[checkIndex].color = float4(1, 0, 0, 1);
+                                    Particles[checkIndex].pressure += 200;
+                                    Particles[checkIndex].velocity = float2(((first.position.x + dx) / dx) % 6, ((first.position.y + dy) / dx) % 6);//float2((first.position.x + dx) * f, (first.position.y + dy) * f);
+
+                                }
+                            }
+                        }
+                    }
+                }
+
                 return;
+
             }
 
             // Improved collision resolution based on elastic collisions
@@ -866,7 +893,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             other.pressure += 100;
 
             first.color = float4(1, 1, 0, 1);
-            
+
             Particles[newPositionIndex] = copy(first);
             first = other;
             index = newPositionIndex;
@@ -928,7 +955,7 @@ void CSFallSand(uint3 id : SV_DispatchThreadID)
             Particles[index].color *= float4(0.9, 0.9, 0.9, 1);
             Particles[index].glowIntensity *= 0.9;
         }
-        
+
     }
     if (Particles[index].lastUpdateFrame < _CurrentFrame){
         if (Particles[index].pressure > 0) Particles[index].pressure--;
