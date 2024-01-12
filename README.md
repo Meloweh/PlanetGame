@@ -181,8 +181,10 @@ https://github.com/Meloweh/PlanetGame/assets/49780209/3bbffa6f-7b0a-41f9-9e19-12
 - Dass der Ansatz funktioniert war nicht leicht zu erkennen. Erst ist Unity eingefroren, allerdings nicht gecrasht. Dann kam ich darauf, dass das nicht wegen einem Leak geschieht, sondern wegen einem hohen Rechenaufwand. Die Partikel haben miteinander in einer Kettenreaktion wieder und wieder interagiert, daher habe ich alle aus dem Planeten freigesetzten Partikel mit "Particles[checkIndex].stickyToId = -2;" anstelle von "Particles[checkIndex].stickyToId = -1;" initialisiert und die Bedingung an die Kollision gestellt, dass stickyToId nicht -2 sein darf. Der Modulo  in der Velocityrechnung verhindert zusätzlich eine Kettenreaktion, da die Bedingung ist "if (abs(length(first.velocity)) > maxSpeed - 3 && first.stickyToId > -2)" wobei maxSpeed == 10.
 - Ein zweites Problem war dass die Einschläge wie bei v6 nur einseitig zu Wirken schien. das lag daran, dass ich das "abs" in der obigen if-condition vergessen hatte und erst später den Planeten auch von anderen Stellen außer im letzten Quadranten getestet habe.
 
-Hier das Endresultat:
+## Ergebnis
 
 https://github.com/Meloweh/PlanetGame/assets/49780209/95459c79-1a51-4cc9-a12b-4d21567684d1
 
+## 2 Minuten Video
 
+[![IMAGE ALT TEXT](http://img.youtube.com/vi/9zEHZ0ne0Hs/0.jpg)](http://www.youtube.com/watch?v=9zEHZ0ne0Hs "Planet Game Demo Video")
